@@ -32,11 +32,24 @@ def manager(request):
             return HttpResponse(response)
         elif offer == "login":
             currentSession = Session.objects.latest('start')
-            currentSession.participants += 1
-            currentSession.save()
-            participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number)
-            participant.save()         
-            return HttpResponse("ok")   
+            if currentSession.status == "open":
+                try:
+                    Participant.objects.get(participant_id = participant_id)
+                    return HttpResponse("already_logged")
+                except ObjectDoesNotExist:                    
+                    currentSession.participants += 1
+                    currentSession.save()
+                    participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number)
+                    participant.save()         
+                    return HttpResponse("login_successful")   
+            elif currentSession.status == "ongoing":
+                try:
+                    Participant.objects.get(participant_id = participant_id)
+                    return HttpResponse("start")
+                except ObjectDoesNotExist:
+                    return HttpResponse("ongoing")
+            else:
+                return HttpResponse("no_open")       
         else:
             participant = Participant.objects.get(participant_id = participant_id) 
             bid = Bid(participant_id = participant_id, block = block, bid = offer, group_number = participant.group_number)
@@ -69,14 +82,19 @@ def manager(request):
 
 @login_required(login_url='/admin/login/')
 def openSession(request):
-    session = Session()
-    session.save()
+    otherSessions = Session.objects.filter(status = "open")
+    for oldSession in otherSessions:
+        oldSession.status = "closed"
+    session = Session(status = "open")
+    session.save()    
     return HttpResponse("Session {} otevřena".format(session.session_number))
 
 
 @login_required(login_url='/admin/login/')
 def startSession(request):
     currentSession = Session.objects.latest('start')
+    currentSession.status = "ongoing"
+    currentSession.save()
     participants = Participant.objects.filter(session = currentSession.session_number)
     number = len(participants)
     groups = number//4

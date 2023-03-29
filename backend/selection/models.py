@@ -5,6 +5,7 @@ class Session(models.Model):
     session_number = models.AutoField(primary_key=True) 
     start = models.DateTimeField(auto_now_add=True)
     participants = models.IntegerField(default = 0)
+    status = models.CharField(max_length=10, default="closed")
        
     # def __str__(self):
     #     field_values = []
