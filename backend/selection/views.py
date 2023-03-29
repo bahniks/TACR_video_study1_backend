@@ -20,16 +20,14 @@ def manager(request):
         if offer == "result":
             participant = Participant.objects.get(participant_id = participant_id)            
             group = Group.objects.get(group_number = participant.group_number)
-            group_bids = getBids(participant_id, block)
-            bids = group_bids["bids"]
-            myoffer = group_bids["myoffer"]
-            if len(bids) == group.participants:
-                bids.sort()
-                maxoffer = bids[len(bids) - 1]
-                secondoffer = bids[len(bids) - 2]
-                condition = "treatment" if myoffer == maxoffer else "control" # upravit pro rovnost                
+            try:
+                winner = Winner.objects.get(group_number = group.group_number, block = block)
+                myoffer = Bid.objects.get(participant_id = participant_id, block = block).bid
+                maxoffer = winner.maxoffer
+                secondoffer = winner.secondoffer
+                condition = "treatment" if participant_id == winner.winner else "control"          
                 response = "|".join(map(str, [condition, maxoffer, secondoffer, myoffer]))
-            else:
+            except ObjectDoesNotExist:
                 response = ""
             return HttpResponse(response)
         elif offer == "login":
@@ -40,30 +38,33 @@ def manager(request):
             participant.save()         
             return HttpResponse("ok")   
         else:
-            bid = Bid(participant_id = participant_id, block = block, bid = offer)
-            bid.save()
             participant = Participant.objects.get(participant_id = participant_id) 
+            bid = Bid(participant_id = participant_id, block = block, bid = offer, group_number = participant.group_number)
+            bid.save()            
             group = Group.objects.get(group_number = participant.group_number)
-            group_bids = getBids(participant_id, block)["bids"]
+            group_bids = Bid.objects.filter(block = block, group_number = participant.group_number)
             if len(group_bids) == group.participants:
-                pass # vybrat, kdo vyhral a ulozit do Group auction
+                highest_bidder = []
+                maxoffer = 0
+                secondoffer = 0
+                all_members = Participant.objects.filter(group_number = participant.group_number)
+                for p in all_members:
+                    b = Bid.objects.get(participant_id = p.participant_id, block = block)
+                    bid = b.bid
+                    if bid > maxoffer:
+                        secondoffer = maxoffer
+                        maxoffer = bid                        
+                        highest_bidder = [b.participant_id]
+                    elif bid == maxoffer:
+                        secondoffer = maxoffer
+                        highest_bidder.append(b.participant_id)
+                    elif bid > secondoffer:
+                        secondoffer = bid
+                highest_bidder.shuffle()
+                highest_bidder = highest_bidder[0]
+                winner = Winner(group_number = group.group_number, block = block, winner = highest_bidder, maxoffer = maxoffer, secondoffer = secondoffer)
+                winner.save()
             return HttpResponse("ok")
-
-
-def getBids(participant_id, block):
-        participant = Participant.objects.get(participant_id = participant_id)            
-        group = Group.objects.get(group_number = participant.group_number)
-        all_members = Participant.objects.filter(group_number = participant.group_number)
-        bids = []
-        for p in all_members:
-            try:
-                b = Bid.objects.get(participant_id = p.participant_id, block = block)
-            except ObjectDoesNotExist:
-                pass
-            if p.participant_id == participant_id:
-                myoffer = b.bid
-            bids.append(b.bid)
-        return {"bids": bids, "myoffer": myoffer}
 
 
 @login_required(login_url='/admin/login/')

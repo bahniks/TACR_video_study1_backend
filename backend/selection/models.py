@@ -16,10 +16,15 @@ class Session(models.Model):
 class Group(models.Model):
     group_number = models.AutoField(primary_key=True)   
     session = models.IntegerField(default=0)
-    participants = models.IntegerField(default=0)        
-    auction_one = models.CharField(max_length=50, default="")  
-    auction_two = models.CharField(max_length=50, default="")  
-    auction_three = models.CharField(max_length=50, default="")  
+    participants = models.IntegerField(default=0)
+
+
+class Winner(models.Model):
+    group_number = models.IntegerField(default=0)      
+    block = models.IntegerField(default=0)
+    winner = models.CharField(max_length=50, default="")
+    maxoffer = models.IntegerField(default=0)
+    secondoffer = models.IntegerField(default=0)
 
 
 class Participant(models.Model):
@@ -33,3 +38,4 @@ class Bid(models.Model):
     block = models.IntegerField(default=0)
     bid = models.IntegerField(default=0)
     time = models.DateTimeField(auto_now_add=True)
+    group_number = models.IntegerField(default=0)
