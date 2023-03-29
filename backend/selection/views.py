@@ -6,7 +6,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 import random
 
-from .models import Bid, Session, Group, Participant
+from .models import Bid, Session, Group, Participant, Winner
 
 
 @csrf_exempt 
@@ -60,7 +60,7 @@ def manager(request):
                         highest_bidder.append(b.participant_id)
                     elif bid > secondoffer:
                         secondoffer = bid
-                highest_bidder.shuffle()
+                random.shuffle(highest_bidder)
                 highest_bidder = highest_bidder[0]
                 winner = Winner(group_number = group.group_number, block = block, winner = highest_bidder, maxoffer = maxoffer, secondoffer = secondoffer)
                 winner.save()
