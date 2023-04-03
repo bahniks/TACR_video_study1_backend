@@ -18,6 +18,9 @@ class Group(models.Model):
     group_number = models.AutoField(primary_key=True)   
     session = models.IntegerField(default=0)
     participants = models.IntegerField(default=0)
+    bdm_one = models.IntegerField(default=0)
+    bdm_two = models.IntegerField(default=0)
+    condition = models.CharField(max_length=5, default="")
 
 
 class Winner(models.Model):

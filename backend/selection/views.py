@@ -9,6 +9,9 @@ import random
 from .models import Bid, Session, Group, Participant, Winner
 
 
+MAX_BDM_PRIZE = 300
+
+
 @csrf_exempt 
 def manager(request):
     if request.method == "GET":
@@ -44,8 +47,9 @@ def manager(request):
                     return HttpResponse("login_successful")   
             elif currentSession.status == "ongoing":
                 try:
-                    Participant.objects.get(participant_id = participant_id)
-                    return HttpResponse("start")
+                    participant = Participant.objects.get(participant_id = participant_id)
+                    group = Group.objects.get(group_number = participant.group_number)
+                    return HttpResponse("_".join(["start", str(group.bdm_one), str(group.bdm_two), group.condition]))
                 except ObjectDoesNotExist:
                     return HttpResponse("ongoing")
             else:
@@ -102,7 +106,10 @@ def startSession(request):
     random.shuffle(assignment)    
     num = 0
     for i in range(groups):
-        group = Group(session = currentSession.session_number, participants = 4)
+        bdm_one = random.randint(1, MAX_BDM_PRIZE)
+        bdm_two = random.randint(1, MAX_BDM_PRIZE)
+        condition = random.choice(["low", "high"])
+        group = Group(session = currentSession.session_number, participants = 4, bdm_one = bdm_one, bdm_two = bdm_two)
         group.save()
         for j in range(4):
             p = participants[num]
