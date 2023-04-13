@@ -39,10 +39,15 @@ def manager(request):
                 try:
                     Participant.objects.get(participant_id = participant_id)
                     return HttpResponse("already_logged")
+                    # participant = Participant.objects.get(participant_id = participant_id)
+                    # if participant.frame == 0:
+                    #     return HttpResponse("already_logged")
+                    # else:
+                    #     return HttpResponse("frame_" + str(participant.frame))
                 except ObjectDoesNotExist:                    
                     currentSession.participants += 1
                     currentSession.save()
-                    participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number)
+                    participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number, frame = 0)
                     participant.save()         
                     return HttpResponse("login_successful")   
             elif currentSession.status == "ongoing":
@@ -92,6 +97,14 @@ def openSession(request):
     session = Session(status = "open")
     session.save()    
     return HttpResponse("Session {} otevřena".format(session.session_number))
+
+
+@login_required(login_url='/admin/login/')
+def closeSession(request):
+    currentSession = Session.objects.get(status = "open")    
+    currentSession.status = "closed"    
+    currentSession.save()
+    return HttpResponse("Session {} uzavřena".format(currentSession.session_number))
 
 
 @login_required(login_url='/admin/login/')

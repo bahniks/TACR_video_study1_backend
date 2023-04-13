@@ -8,5 +8,6 @@ urlpatterns = [
     #path('admin/', admin.site.urls),
     path("start_session/", views.startSession, name = "start_session"),
     path("open_session/", views.openSession, name = "open_session"),
+    path("close_session/", views.closeSession, name = "close_session"),
     path("session_info/", views.sessionInfo, name = "session_info"),
 ]

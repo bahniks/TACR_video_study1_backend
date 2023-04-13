@@ -34,7 +34,8 @@ class Winner(models.Model):
 class Participant(models.Model):
     participant_id = models.CharField(max_length=50, default="")  
     group_number = models.IntegerField(default=0)
-    session = models.IntegerField(default=0)    
+    session = models.IntegerField(default=0)
+    #frame = models.IntegerField(default=0)
     
 
 class Bid(models.Model):
