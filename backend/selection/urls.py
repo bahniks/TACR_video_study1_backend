@@ -5,7 +5,7 @@ from . import views
 
 urlpatterns = [
     path('', views.manager, name = 'base'),
-    #path('admin/', admin.site.urls),
+    path('delete_data/', views.delete, name='delete_data'),
     path("start_session/", views.startSession, name = "start_session"),
     path("open_session/", views.openSession, name = "open_session"),
     path("close_session/", views.closeSession, name = "close_session"),

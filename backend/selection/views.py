@@ -35,7 +35,10 @@ def manager(request):
                 response = ""
             return HttpResponse(response)
         elif offer == "login":
-            currentSession = Session.objects.latest('start')
+            try:
+                currentSession = Session.objects.latest('start')
+            except ObjectDoesNotExist:
+                return HttpResponse("no_open")
             if currentSession.status == "open":
                 try:
                     Participant.objects.get(participant_id = participant_id)
@@ -59,7 +62,11 @@ def manager(request):
                 except ObjectDoesNotExist:
                     return HttpResponse("ongoing")
             elif currentSession.status == "closed":
-                return HttpResponse("closed")
+                try:
+                    Participant.objects.get(participant_id = participant_id)
+                    return HttpResponse("already_logged")
+                except ObjectDoesNotExist:       
+                    return HttpResponse("closed")
             else:
                 return HttpResponse("no_open")
         elif block == "-99":
@@ -100,8 +107,11 @@ def manager(request):
 
 @login_required(login_url='/admin/login/')
 def openSession(request, response = True):
-    currentSession = Session.objects.latest('start')
-    if currentSession.status == "closed":
+    try:
+        currentSession = Session.objects.latest('start')
+    except ObjectDoesNotExist:
+        currentSession = None
+    if currentSession and currentSession.status == "closed":
         currentSession.status = "open"
     else:
         otherSessions = Session.objects.filter(status__in=["open", "ongoing", "closed"])
@@ -177,6 +187,32 @@ def startSession(request, response = True):
         return "Sezení {} zahájeno s {} participanty".format(currentSession.session_number, currentSession.participants)
 
 
+def showEntries(objectType):
+    entries = objectType.objects.all() # pylint: disable=no-member
+    if not entries:
+        return None
+    else:
+        fields = [field.name for field in objectType._meta.get_fields()] # pylint: disable=no-member
+        content = "\t".join(fields) + "\n" + "\n".join([str(entry) for entry in entries])
+        return content
+
+
+def downloadData(content, filename):
+    response = HttpResponse(content, content_type="text/plain,charset=utf8")
+    response['Content-Disposition'] = 'attachment; filename={0}.txt'.format(filename)
+    return response
+
+
+@login_required(login_url='/admin/login/')
+def delete(request):
+    Session.objects.all().delete() # pylint: disable=no-member
+    Group.objects.all().delete() # pylint: disable=no-member
+    Winner.objects.all().delete() # pylint: disable=no-member
+    Participant.objects.all().delete() # pylint: disable=no-member
+    Bid.objects.all().delete() # pylint: disable=no-member
+    return HttpResponse("Data smazána")
+
+
 @login_required(login_url='/admin/login/')
 def administration(request):
     participants = {}
@@ -191,25 +227,41 @@ def administration(request):
             info = closeSession(request, response = False) 
         elif "ukoncit" in answer:
             info = endSession(request, response = False) 
+        elif "ukazat" in answer or "data" in answer:
+            info = "Hotovo"            
+            pattern = {"sezeni": Session, "skupiny": Group, "vyherce": Winner, "participanty": Participant, "nabidky": Bid}
+            for key in pattern:
+                if key in answer:
+                    content = showEntries(pattern[key])
+                    break 
+            else:      
+                content = None
+            if not content:                
+                info = "Data požadovaného typu nenalezena"
+            elif "ukazat" in answer:
+                return HttpResponse(content, content_type='text/plain')
+            else:
+                filename = {"sezeni": "Sessions", "skupiny": "Groups", "vyherce": "Winners", "participanty": "Participants", "nabidky": "Bids"}[key]
+                return downloadData(content, filename)
         else:
             info = "Toto není validní příkaz"
     else:        
         try:
             currentSession = Session.objects.latest('start')
+            status = currentSession.status 
+            if status == "open":
+                info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno".format(currentSession.participants, currentSession.session_number)
+            elif status == "ongoing":
+                info = "Probíhá sezení {} s {} participanty".format(currentSession.session_number, currentSession.participants)
+                parts = Participant.objects.filter(session = currentSession.session_number, finished = True)
+                for part in parts:
+                    participants[part.participant_id] = part.reward
+            elif status == "closed":
+                info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(currentSession.participants, currentSession.session_number)
+            elif status == "finished":
+                info = "Poslední sezení {} bylo ukončeno".format(currentSession.session_number)
         except ObjectDoesNotExist:
             info = "V databázi není žádné sezení"
-        status = currentSession.status 
-        if status == "open":
-            info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno".format(currentSession.participants, currentSession.session_number)
-        elif status == "ongoing":
-            info = "Probíhá sezení {} s {} participanty".format(currentSession.session_number, currentSession.participants)
-            parts = Participant.objects.filter(session = currentSession.session_number, finished = True)
-            for part in parts:
-                participants[part.participant_id] = part.reward
-        elif status == "closed":
-            info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(currentSession.participants, currentSession.session_number)
-        elif status == "finished":
-            info = "Poslední sezení {} bylo ukončeno".format(currentSession.session_number)
     localContext = {"info": info, "status": status, "participants": participants}
     template = loader.get_template('index.html')
     return HttpResponse(template.render(localContext, request))

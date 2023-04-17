@@ -7,11 +7,11 @@ class Session(models.Model):
     participants = models.IntegerField(default = 0)
     status = models.CharField(max_length=10, default="closed")
        
-    # def __str__(self):
-    #     field_values = []
-    #     for field in self._meta.get_fields(): # pylint: disable=no-member
-    #         field_values.append(str(getattr(self, field.name, '')))
-    #     return '\t'.join(field_values)
+    def __str__(self):
+        field_values = []
+        for field in self._meta.get_fields(): # pylint: disable=no-member
+            field_values.append(str(getattr(self, field.name, '')))
+        return '\t'.join(field_values)
 
 
 class Group(models.Model):
@@ -22,6 +22,12 @@ class Group(models.Model):
     bdm_two = models.IntegerField(default=0)
     condition = models.CharField(max_length=5, default="")
 
+    def __str__(self):
+        field_values = []
+        for field in self._meta.get_fields(): # pylint: disable=no-member
+            field_values.append(str(getattr(self, field.name, '')))
+        return '\t'.join(field_values)
+
 
 class Winner(models.Model):
     group_number = models.IntegerField(default=0)      
@@ -29,6 +35,12 @@ class Winner(models.Model):
     winner = models.CharField(max_length=50, default="")
     maxoffer = models.IntegerField(default=0)
     secondoffer = models.IntegerField(default=0)
+
+    def __str__(self):
+        field_values = []
+        for field in self._meta.get_fields(): # pylint: disable=no-member
+            field_values.append(str(getattr(self, field.name, '')))
+        return '\t'.join(field_values)
 
 
 class Participant(models.Model):
@@ -38,7 +50,13 @@ class Participant(models.Model):
     finished = models.BooleanField(default=False)
     reward = models.IntegerField(default=0)
     #frame = models.IntegerField(default=0)
-    
+
+    def __str__(self):
+        field_values = []
+        for field in self._meta.get_fields(): # pylint: disable=no-member
+            field_values.append(str(getattr(self, field.name, '')))
+        return '\t'.join(field_values)    
+
 
 class Bid(models.Model):
     participant_id = models.CharField(max_length=50, default="")
@@ -46,3 +64,9 @@ class Bid(models.Model):
     bid = models.IntegerField(default=0)
     time = models.DateTimeField(auto_now_add=True)
     group_number = models.IntegerField(default=0)
+
+    def __str__(self):
+        field_values = []
+        for field in self._meta.get_fields(): # pylint: disable=no-member
+            field_values.append(str(getattr(self, field.name, '')))
+        return '\t'.join(field_values)
