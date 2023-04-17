@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block head %}
+<meta http-equiv="refresh" content="30">
+{% endblock %}
+
+
+{% block body %}
+<script>
+    function submitForm() {
+        document.getElementById("process").submit();
+        setTimeout(() => {
+            document.getElementById("submitButton").disabled = false;
+            }, 1000);
+    }
+</script>
+
+<div class="main">
+    <p style="width: 800px;" class="horizontal-center">
+        <p>
+            <p>Do textového pole můžete zadat jeden z následujících příkazů:</p>
+            <p>
+                otevrit - Otevře experimentální sezení k přihlášení<br>
+                uzavrit - Do experimentálního sezení již nebude možno se dále přihlašovat<br>
+                spustit - Spustí experimentální sezení pro všechny participanty<br>
+                ukoncit - Ukončí experimentální sezení
+            </p>
+            <p>Po zadání příkazu klikněte na tlačítko Provést.</p>
+        </p>        
+        <form method="POST" id="process">
+            {% csrf_token %}
+            <input type="text" name="answer" maxlength="24" size="24" autofocus required><br>
+            <input type="submit" name="continue" value="Provést" id="submitButton" class="horizontal-center" onclick="this.disabled=true; submitForm();" style="margin-bottom: 10px; margin-top: 10px;">
+        </form>
+    </p>
+    <p id="info" style="margin-bottom: 10px; margin-top: 10px;">  
+        <b>{{ info }}</b>
+    </p>
+    {% if status == "ongoing" and participants %}  
+        <p>        
+            <p>Odměny participantů, kteří již dokončili studii:</p>
+            <ul> 
+                {% for participant, reward in participants.items %} 
+                    <li>{{participant}}: {{reward}}</li>
+                {% endfor %} 
+            </ul>                 
+        </p>
+    {% endif %} 
+</div>
+{% endblock %}

@@ -1,3 +1,4 @@
+from django.template import loader
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -90,25 +91,58 @@ def manager(request):
 
 
 @login_required(login_url='/admin/login/')
-def openSession(request):
-    otherSessions = Session.objects.filter(status = "open")
-    for oldSession in otherSessions:
-        oldSession.status = "closed"
-    session = Session(status = "open")
-    session.save()    
-    return HttpResponse("Session {} otevřena".format(session.session_number))
+def openSession(request, response = True):
+    currentSession = Session.objects.latest('start')
+    if currentSession.status == "closed":
+        currentSession.status = "open"
+    else:
+        otherSessions = Session.objects.filter(status__in=["open", "ongoing", "closed"])
+        for oldSession in otherSessions:
+            oldSession.status = "finished"
+            oldSession.save()
+        currentSession = Session(status = "open")
+    currentSession.save()    
+    if response:
+        return HttpResponse("Sezení {} otevřeno".format(currentSession.session_number))
+    else:
+        return "Sezení {} otevřeno".format(currentSession.session_number)
 
 
 @login_required(login_url='/admin/login/')
-def closeSession(request):
-    currentSession = Session.objects.get(status = "open")    
-    currentSession.status = "closed"    
-    currentSession.save()
-    return HttpResponse("Session {} uzavřena".format(currentSession.session_number))
+def closeSession(request, response = True):
+    try:
+        currentSession = Session.objects.get(status = "open")    
+        currentSession.status = "closed"    
+        currentSession.save()
+        text = "Sezení {} uzavřeno pro přihlašování".format(currentSession.session_number)
+    except ObjectDoesNotExist:
+        text = "Není otevřeno žádné sezení"
+    if response:
+        return HttpResponse(text)
+    else:
+        return text
 
 
 @login_required(login_url='/admin/login/')
-def startSession(request):
+def endSession(request, response = True):
+    try:
+        currentSession = Session.objects.latest('start')
+        if currentSession.status == "finished":
+            text = "Poslední sezení bylo již ukončeno"
+        else:
+            currentSession.status = "finished"    
+            currentSession.save()
+            text = "Sezení {} ukončeno".format(currentSession.session_number)
+    except ObjectDoesNotExist:
+        text = "V databázi není žádné sezení"
+    if response:
+        return HttpResponse(text)
+    else:
+        return text
+
+
+@login_required(login_url='/admin/login/')
+def startSession(request, response = True):
     currentSession = Session.objects.latest('start')
     currentSession.status = "ongoing"
     currentSession.save()
@@ -129,9 +163,45 @@ def startSession(request):
             p.group_number = group.group_number
             p.save()
             num += 1
-    return HttpResponse("Session {} zahájena s {} participanty".format(currentSession.session_number, currentSession.participants))
+    if response:
+        return HttpResponse("Sezení {} zahájeno s {} participanty".format(currentSession.session_number, currentSession.participants))
+    else:
+        return "Sezení {} zahájeno s {} participanty".format(currentSession.session_number, currentSession.participants)
 
 
 @login_required(login_url='/admin/login/')
-def sessionInfo(request):
-    pass
+def administration(request):
+    participants = {}
+    status = ""
+    if request.method == "POST":
+        answer = request.POST['answer'].strip().replace(" ", "")
+        if "otevrit" in answer:
+            info = openSession(request, response = False)            
+        elif "spustit" in answer:
+            info = startSession(request, response = False) 
+        elif "uzavrit" in answer:
+            info = closeSession(request, response = False) 
+        elif "ukoncit" in answer:
+            info = endSession(request, response = False) 
+        else:
+            info = "Toto není validní příkaz"
+    else:        
+        try:
+            currentSession = Session.objects.latest('start')
+        except ObjectDoesNotExist:
+            info = "V databázi není žádné sezení"
+        status = currentSession.status 
+        if status == "open":
+            info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno".format(currentSession.participants, currentSession.session_number)
+        elif status == "ongoing":
+            info = "Probíhá sezení {} s {} participanty".format(currentSession.session_number, currentSession.participants)
+            parts = Participant.objects.filter(session = currentSession.session_number, finished = True)
+            for part in parts:
+                participants[part.participant_id] = part.reward
+        elif status == "closed":
+            info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(currentSession.participants, currentSession.session_number)
+        elif status == "finished":
+            info = "Poslední sezení {} bylo ukončeno".format(currentSession.session_number)
+    localContext = {"info": info, "status": status, "participants": participants}
+    template = loader.get_template('index.html')
+    return HttpResponse(template.render(localContext, request))
