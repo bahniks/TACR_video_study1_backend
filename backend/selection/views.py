@@ -48,7 +48,7 @@ def manager(request):
                 except ObjectDoesNotExist:                    
                     currentSession.participants += 1
                     currentSession.save()
-                    participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number, frame = 0)
+                    participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number)
                     participant.save()         
                     return HttpResponse("login_successful")   
             elif currentSession.status == "ongoing":
@@ -62,7 +62,7 @@ def manager(request):
                 return HttpResponse("closed")
             else:
                 return HttpResponse("no_open")
-        elif block == -99:
+        elif block == "-99":
             participant = Participant.objects.get(participant_id = participant_id)    
             participant.reward = offer
             participant.finished = True
@@ -181,8 +181,8 @@ def startSession(request, response = True):
 def administration(request):
     participants = {}
     status = ""
-    if request.method == "POST":
-        answer = request.POST['answer'].strip().replace(" ", "")
+    if request.method == "POST" and request.POST['answer'].strip():
+        answer = request.POST['answer']
         if "otevrit" in answer:
             info = openSession(request, response = False)            
         elif "spustit" in answer:
