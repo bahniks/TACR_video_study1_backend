@@ -58,8 +58,16 @@ def manager(request):
                     return HttpResponse("_".join(["start", str(group.bdm_one), str(group.bdm_two), group.condition]))
                 except ObjectDoesNotExist:
                     return HttpResponse("ongoing")
+            elif currentSession.status == "closed":
+                return HttpResponse("closed")
             else:
-                return HttpResponse("no_open")       
+                return HttpResponse("no_open")
+        elif block == -99:
+            participant = Participant.objects.get(participant_id = participant_id)    
+            participant.reward = offer
+            participant.finished = True
+            participant.save()
+            return HttpResponse("ok")
         else:
             participant = Participant.objects.get(participant_id = participant_id) 
             bid = Bid(participant_id = participant_id, block = block, bid = offer, group_number = participant.group_number)
