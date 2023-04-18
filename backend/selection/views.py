@@ -81,7 +81,7 @@ def manager(request):
             participant = Participant.objects.get(participant_id = participant_id)            
             group = Group.objects.get(group_number = participant.group_number)
             if offer == "outcome":
-                winner = Winner.objects.get(group_number = group.group_number, block = block)
+                winner = Winner.objects.get(group_number = group.group_number, block = int(block) - 1)
                 response = "_".join(["outcome", str(winner.wins), str(winner.reward), str(winner.charity), str(winner.completed)])
                 return HttpResponse(response)
             else:            
@@ -206,7 +206,7 @@ def startSession(request, response = True):
         bdm_one = random.randint(1, MAX_BDM_PRIZE)
         bdm_two = random.randint(1, MAX_BDM_PRIZE)
         condition = random.choice(["lowinfo", "highinfo", "lowcontrol", "highcontrol"])
-        group = Group(session = currentSession.session_number, participants = 4, bdm_one = bdm_one, bdm_two = bdm_two)
+        group = Group(session = currentSession.session_number, participants = 4, bdm_one = bdm_one, bdm_two = bdm_two, condition = condition)
         group.save()
         for j in range(4):
             p = participants[num]
