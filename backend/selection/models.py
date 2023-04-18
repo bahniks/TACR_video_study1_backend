@@ -35,6 +35,10 @@ class Winner(models.Model):
     winner = models.CharField(max_length=50, default="")
     maxoffer = models.IntegerField(default=0)
     secondoffer = models.IntegerField(default=0)
+    wins = models.IntegerField(default=0)
+    reward = models.IntegerField(default=0)
+    charity = models.IntegerField(default=0)
+    completed = models.IntegerField(default=0)
 
     def __str__(self):
         field_values = []

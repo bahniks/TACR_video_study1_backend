@@ -57,6 +57,8 @@ def manager(request):
             elif currentSession.status == "ongoing":
                 try:
                     participant = Participant.objects.get(participant_id = participant_id)
+                    if participant.group_number == -99:
+                        return HttpResponse("not_grouped")
                     group = Group.objects.get(group_number = participant.group_number)
                     return HttpResponse("_".join(["start", str(group.bdm_one), str(group.bdm_two), group.condition]))
                 except ObjectDoesNotExist:
@@ -75,6 +77,23 @@ def manager(request):
             participant.finished = True
             participant.save()
             return HttpResponse("ok")
+        elif "outcome" in offer:
+            participant = Participant.objects.get(participant_id = participant_id)            
+            group = Group.objects.get(group_number = participant.group_number)
+            if offer == "outcome":
+                winner = Winner.objects.get(group_number = group.group_number, block = block)
+                response = "_".join(["outcome", str(winner.wins), str(winner.reward), str(winner.charity), str(winner.completed)])
+                return HttpResponse(response)
+            else:            
+                _, wins, reward, charity = offer.split("_")                
+                winner = Winner.objects.get(group_number = group.group_number, block = block)
+                if winner.winner == participant_id:
+                    winner.wins = wins
+                    winner.reward = reward
+                    winner.charity = charity
+                winner.completed += 1
+                winner.save()
+                return HttpResponse("ok")        
         else:
             participant = Participant.objects.get(participant_id = participant_id) 
             bid = Bid(participant_id = participant_id, block = block, bid = offer, group_number = participant.group_number)
@@ -113,6 +132,11 @@ def openSession(request, response = True):
         currentSession = None
     if currentSession and currentSession.status == "closed":
         currentSession.status = "open"
+    elif currentSession and currentSession.status == "ongoing":
+        if response:
+            return HttpResponse("Není možné otevřít nové sezení, když je spuštěné jiné sezení")
+        else:
+            return "Není možné otevřít nové sezení, když je spuštěné jiné sezení"
     else:
         otherSessions = Session.objects.filter(status__in=["open", "ongoing", "closed"])
         for oldSession in otherSessions:
@@ -161,7 +185,15 @@ def endSession(request, response = True):
 
 @login_required(login_url='/admin/login/')
 def startSession(request, response = True):
-    currentSession = Session.objects.latest('start')
+    try:
+        currentSession = Session.objects.latest('start')
+        if currentSession.status == "finished" or currentSession.status == "ongoing":
+            raise Exception
+    except Exception:
+        if response:
+            return HttpResponse("Není zahájeno žádné sezení")
+        else:
+            return "Není zahájeno žádné sezení"        
     currentSession.status = "ongoing"
     currentSession.save()
     participants = Participant.objects.filter(session = currentSession.session_number)
@@ -173,7 +205,7 @@ def startSession(request, response = True):
     for i in range(groups):
         bdm_one = random.randint(1, MAX_BDM_PRIZE)
         bdm_two = random.randint(1, MAX_BDM_PRIZE)
-        condition = random.choice(["low", "high"])
+        condition = random.choice(["lowinfo", "highinfo", "lowcontrol", "highcontrol"])
         group = Group(session = currentSession.session_number, participants = 4, bdm_one = bdm_one, bdm_two = bdm_two)
         group.save()
         for j in range(4):
