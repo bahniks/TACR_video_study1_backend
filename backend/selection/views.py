@@ -152,7 +152,7 @@ def download(request):
         currentSession = Session.objects.latest('start').session_number
     except ObjectDoesNotExist:
         currentSession = "X"
-    zip_filename = "data_Selection1_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files)) # pridat cas, session a pocet participantu do nazvu
+    zip_filename = "data_Selection1_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files))
     zip_file_path = os.path.join(file_path, zip_filename)
     with zipfile.ZipFile(zip_file_path, "w") as zip_file:
         for file in files:
@@ -271,10 +271,48 @@ def showEntries(objectType):
         return content
 
 
+@login_required(login_url='/admin/login/')
 def downloadData(content, filename):
     response = HttpResponse(content, content_type="text/plain,charset=utf8")
     response['Content-Disposition'] = 'attachment; filename={0}.txt'.format(filename)
     return response
+
+
+@login_required(login_url='/admin/login/')
+def downloadAll(request):
+    file_path = "results/"
+    files = os.listdir(file_path)
+    files.remove(".gitignore")
+    tables = {"Sessions": Session, "Groups": Group, "Winners": Winner, "Participants": Participant, "Bids": Bid}
+    for table, objectType in tables.items():
+        filename = table + ".txt"
+        files.append(filename)
+        content = showEntries(objectType)
+        with open(os.path.join(file_path, filename), mode = "w") as f:
+            f.write(content)      
+    files_to_remove = [x for x in files if x.endswith(".zip")]
+    for f in files_to_remove:
+        os.remove(os.path.join(file_path, f))
+        files.remove(f)
+    writeTime = localtime()
+    try:
+        currentSession = Session.objects.latest('start').session_number
+    except ObjectDoesNotExist:
+        currentSession = "X"
+    zip_filename = "all_data_Selection1_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files))
+    zip_file_path = os.path.join(file_path, zip_filename)
+    with zipfile.ZipFile(zip_file_path, "w") as zip_file:
+        for file in files:
+            file_full_path = os.path.join(file_path, file)
+            zip_file.write(file_full_path, file)
+    for table in tables:
+        filename = os.path.join(file_path, table + ".txt")
+        if os.path.exists(filename):
+            os.remove(filename)
+    with open(zip_file_path, "rb") as f:
+        response = HttpResponse(f.read(), content_type="application/zip")
+        response["Content-Disposition"] = "attachment; filename={}".format(zip_filename)
+        return response      
 
 
 @login_required(login_url='/admin/login/')
@@ -314,6 +352,8 @@ def administration(request):
             info = endSession(request, response = False) 
         elif "ukazat" in answer or "data" in answer:
             info = "Hotovo"            
+            if "vse" in answer and ("data" in answer or "stahnout"):
+                return downloadAll(request)
             pattern = {"sezeni": Session, "skupiny": Group, "vyherc": Winner, "participant": Participant, "nabidky": Bid}
             for key in pattern:
                 if key in answer:
@@ -329,6 +369,7 @@ def administration(request):
                 filename = {"sezeni": "Sessions", "skupiny": "Groups", "vyherc": "Winners", "participant": "Participants", "nabidky": "Bids"}[key]
                 return downloadData(content, filename)
         elif "stahnout" in answer:
+            info = "Hotovo" 
             return(download(request))            
         else:
             info = "Toto není validní příkaz"
