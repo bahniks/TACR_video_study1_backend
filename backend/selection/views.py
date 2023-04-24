@@ -5,6 +5,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 
+from time import localtime, strftime
+
 import random
 import os
 import zipfile
@@ -137,11 +139,20 @@ def results(request):
 
 
 @login_required(login_url='/admin/login/')
-def downloadData(request):
+def download(request):
     file_path = "results/"
     files = os.listdir(file_path)
     files.remove(".gitignore")
-    zip_filename = "data.zip" # pridat cas, session a pocet participantu do nazvu
+    files_to_remove = [x for x in files if x.endswith(".zip")]
+    for f in files_to_remove:
+        os.remove(os.path.join(file_path, f))
+        files.remove(f)
+    writeTime = localtime()
+    try:
+        currentSession = Session.objects.latest('start').session_number
+    except ObjectDoesNotExist:
+        currentSession = "X"
+    zip_filename = "data_Selection1_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files)) # pridat cas, session a pocet participantu do nazvu
     zip_file_path = os.path.join(file_path, zip_filename)
     with zipfile.ZipFile(zip_file_path, "w") as zip_file:
         for file in files:
@@ -150,7 +161,8 @@ def downloadData(request):
     with open(zip_file_path, "rb") as f:
         response = HttpResponse(f.read(), content_type="application/zip")
         response["Content-Disposition"] = "attachment; filename={}".format(zip_filename)
-        return response
+        return response  
+
 
 
 
@@ -305,6 +317,8 @@ def administration(request):
             else:
                 filename = {"sezeni": "Sessions", "skupiny": "Groups", "vyherc": "Winners", "participant": "Participants", "nabidky": "Bids"}[key]
                 return downloadData(content, filename)
+        elif "stahnout" in answer:
+            return(download(request))            
         else:
             info = "Toto není validní příkaz"
     else:        

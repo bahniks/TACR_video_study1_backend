@@ -12,5 +12,5 @@ urlpatterns = [
     path("close_session/", views.closeSession, name = "close_session"),
     path("end_session/", views.endSession, name = "end_session"),
     path("administrace/", views.administration, name = "administration"),
-    path("download_data/", views.downloadData, name = "download_data"),
+    path("download_data/", views.download, name = "download_data"),
 ]
