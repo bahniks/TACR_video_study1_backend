@@ -284,7 +284,18 @@ def delete(request):
     Winner.objects.all().delete() # pylint: disable=no-member
     Participant.objects.all().delete() # pylint: disable=no-member
     Bid.objects.all().delete() # pylint: disable=no-member
+    return HttpResponse("Databáze vyčištěna")
+
+
+@login_required(login_url='/admin/login/')
+def deleteData(request):
+    file_path = "results/"
+    files = os.listdir(file_path)
+    files.remove(".gitignore")
+    for f in files:
+        os.remove(os.path.join(file_path, f))
     return HttpResponse("Data smazána")
+
 
 
 @login_required(login_url='/admin/login/')

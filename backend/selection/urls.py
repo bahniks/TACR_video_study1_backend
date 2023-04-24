@@ -6,7 +6,8 @@ from . import views
 urlpatterns = [
     path('', views.manager, name = 'base'),
     path('results/', views.results, name='results'),
-    path('delete_data/', views.delete, name='delete_data'),
+    path('delete_data/', views.deleteData, name='delete_data'),
+    path('clear_database/', views.delete, name='delete_database'),
     path("start_session/", views.startSession, name = "start_session"),
     path("open_session/", views.openSession, name = "open_session"),
     path("close_session/", views.closeSession, name = "close_session"),
