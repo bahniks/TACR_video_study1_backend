@@ -53,6 +53,7 @@ class Participant(models.Model):
     session = models.IntegerField(default=0)
     finished = models.BooleanField(default=False)
     reward = models.IntegerField(default=0)
+    #filename = models.FileField(upload_to='results')
     #frame = models.IntegerField(default=0)
 
     def __str__(self):

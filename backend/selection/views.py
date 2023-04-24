@@ -6,6 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 
 import random
+import os
+import zipfile
 
 from .models import Bid, Session, Group, Participant, Winner
 
@@ -122,6 +124,34 @@ def manager(request):
                 winner = Winner(group_number = group.group_number, block = block, winner = highest_bidder, maxoffer = maxoffer, secondoffer = secondoffer)
                 winner.save()
             return HttpResponse("ok")
+
+
+@csrf_exempt 
+def results(request):  
+    uploaded_file = request.FILES["results"]
+    with open("results/" + uploaded_file.name, "wb") as f:
+        for chunk in uploaded_file.chunks():
+            f.write(chunk)
+    return HttpResponse("ok")
+
+
+
+@login_required(login_url='/admin/login/')
+def downloadData(request):
+    file_path = "results/"
+    files = os.listdir(file_path)
+    files.remove(".gitignore")
+    zip_filename = "data.zip" # pridat cas, session a pocet participantu do nazvu
+    zip_file_path = os.path.join(file_path, zip_filename)
+    with zipfile.ZipFile(zip_file_path, "w") as zip_file:
+        for file in files:
+            file_full_path = os.path.join(file_path, file)
+            zip_file.write(file_full_path, file)
+    with open(zip_file_path, "rb") as f:
+        response = HttpResponse(f.read(), content_type="application/zip")
+        response["Content-Disposition"] = "attachment; filename={}".format(zip_filename)
+        return response
+
 
 
 @login_required(login_url='/admin/login/')
@@ -261,7 +291,7 @@ def administration(request):
             info = endSession(request, response = False) 
         elif "ukazat" in answer or "data" in answer:
             info = "Hotovo"            
-            pattern = {"sezeni": Session, "skupiny": Group, "vyherce": Winner, "participanty": Participant, "nabidky": Bid}
+            pattern = {"sezeni": Session, "skupiny": Group, "vyherc": Winner, "participant": Participant, "nabidky": Bid}
             for key in pattern:
                 if key in answer:
                     content = showEntries(pattern[key])
@@ -273,7 +303,7 @@ def administration(request):
             elif "ukazat" in answer:
                 return HttpResponse(content, content_type='text/plain')
             else:
-                filename = {"sezeni": "Sessions", "skupiny": "Groups", "vyherce": "Winners", "participanty": "Participants", "nabidky": "Bids"}[key]
+                filename = {"sezeni": "Sessions", "skupiny": "Groups", "vyherc": "Winners", "participant": "Participants", "nabidky": "Bids"}[key]
                 return downloadData(content, filename)
         else:
             info = "Toto není validní příkaz"
