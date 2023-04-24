@@ -271,7 +271,6 @@ def showEntries(objectType):
         return content
 
 
-@login_required(login_url='/admin/login/')
 def downloadData(content, filename):
     response = HttpResponse(content, content_type="text/plain,charset=utf8")
     response['Content-Disposition'] = 'attachment; filename={0}.txt'.format(filename)
