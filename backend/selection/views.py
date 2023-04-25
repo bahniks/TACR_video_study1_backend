@@ -128,10 +128,19 @@ def manager(request):
             return HttpResponse("ok")
 
 
+
+def results_path():
+    if not os.path.exists("results/"):
+        os.mkdir("results/")
+        # with(open(".gitignore", mode = "w")) as f:
+        #     f.write("*\n!.gitignore")
+    return "results/"
+
+
 @csrf_exempt 
 def results(request):  
     uploaded_file = request.FILES["results"]
-    with open("results/" + uploaded_file.name, "wb") as f:
+    with open(results_path() + uploaded_file.name, "wb") as f:
         for chunk in uploaded_file.chunks():
             f.write(chunk)
     return HttpResponse("ok")
@@ -140,7 +149,7 @@ def results(request):
 
 @login_required(login_url='/admin/login/')
 def download(request):
-    file_path = "results/"
+    file_path = results_path()
     files = os.listdir(file_path)
     files.remove(".gitignore")
     files_to_remove = [x for x in files if x.endswith(".zip")]
@@ -279,7 +288,7 @@ def downloadData(content, filename):
 
 @login_required(login_url='/admin/login/')
 def downloadAll(request):
-    file_path = "results/"
+    file_path = results_path()
     files = os.listdir(file_path)
     files.remove(".gitignore")
     tables = {"Sessions": Session, "Groups": Group, "Winners": Winner, "Participants": Participant, "Bids": Bid}
@@ -326,7 +335,7 @@ def delete(request):
 
 @login_required(login_url='/admin/login/')
 def deleteData(request):
-    file_path = "results/"
+    file_path = results_path()
     files = os.listdir(file_path)
     files.remove(".gitignore")
     for f in files:
