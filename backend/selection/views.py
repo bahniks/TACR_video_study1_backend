@@ -151,7 +151,8 @@ def results(request):
 def download(request):
     file_path = results_path()
     files = os.listdir(file_path)
-    files.remove(".gitignore")
+    if ".gitignore" in files:
+        files.remove(".gitignore")
     files_to_remove = [x for x in files if x.endswith(".zip")]
     for f in files_to_remove:
         os.remove(os.path.join(file_path, f))
