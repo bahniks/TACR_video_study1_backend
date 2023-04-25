@@ -291,7 +291,8 @@ def downloadData(content, filename):
 def downloadAll(request):
     file_path = results_path()
     files = os.listdir(file_path)
-    files.remove(".gitignore")
+    if ".gitignore" in files:
+        files.remove(".gitignore")
     tables = {"Sessions": Session, "Groups": Group, "Winners": Winner, "Participants": Participant, "Bids": Bid}
     for table, objectType in tables.items():
         filename = table + ".txt"
