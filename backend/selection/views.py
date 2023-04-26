@@ -97,7 +97,17 @@ def manager(request):
                     winner.charity = charity
                 winner.completed += 1
                 winner.save()
-                return HttpResponse("ok")        
+                return HttpResponse("ok")
+        elif offer == "continue":            
+            try:
+                participant = Participant.objects.get(participant_id = participant_id)
+                currentSession = Session.objects.latest('start')
+            except ObjectDoesNotExist:
+                return HttpResponse("no")
+            if participant.session == currentSession.session_number and currentSession.status == "ongoing":
+                return HttpResponse("continue")
+            else:
+                return HttpResponse("no")
         else:
             participant = Participant.objects.get(participant_id = participant_id) 
             bid = Bid(participant_id = participant_id, block = block, bid = offer, group_number = participant.group_number)
