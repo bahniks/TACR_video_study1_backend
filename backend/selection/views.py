@@ -140,7 +140,7 @@ def determineWinner(group_number, block):
             secondoffer = bid
     random.shuffle(highest_bidder)
     highest_bidder = highest_bidder[0]
-    winner = Winner(group_number = group.group_number, block = block, winner = highest_bidder, maxoffer = maxoffer, secondoffer = secondoffer)
+    winner = Winner(group_number = group_number, block = block, winner = highest_bidder, maxoffer = maxoffer, secondoffer = secondoffer)
     winner.save()
 
 
