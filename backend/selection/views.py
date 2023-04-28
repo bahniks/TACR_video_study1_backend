@@ -366,7 +366,15 @@ def deleteData(request):
 
 def removeParticipant(participant_id):
     try:
-        participant = Participant.objects.get(participant_id = participant_id)       
+        participant = Participant.objects.get(participant_id = participant_id) 
+        print(participant.finished)
+        if participant.finished:
+            return("Participant již sezení ukončil")
+        elif participant.finished is None:
+            return("Participant již byl přeskočen")
+        else:
+            participant.finished = None
+            participant.save()
         session = Session.objects.get(session_number = participant.session)
         if session.status != "ongoing":
             return("Participant není z aktivního sezení")
@@ -380,11 +388,10 @@ def removeParticipant(participant_id):
                 if win.block > highest:
                     highest = win.block
             lastWinning = Winner.objects.get(group_number = participant.group_number, block = highest)
-            if lastWinning.winner == participant_id and not lastWinning.completed:
+            if lastWinning.winner == participant_id and not lastWinning.wins and not lastWinning.reward and not lastWinning.charity:
                 lastWinning.wins = -99
                 lastWinning.reward = -99
                 lastWinning.charity = -99
-                lastWinning.completed = 1
                 lastWinning.save()
         for block in range(4,7):
             group_bids = Bid.objects.filter(block = block, group_number = participant.group_number)

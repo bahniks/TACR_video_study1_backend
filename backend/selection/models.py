@@ -20,7 +20,7 @@ class Group(models.Model):
     participants = models.IntegerField(default=0)
     bdm_one = models.IntegerField(default=0)
     bdm_two = models.IntegerField(default=0)
-    condition = models.CharField(max_length=5, default="")
+    condition = models.CharField(max_length=12, default="")
 
     def __str__(self):
         field_values = []
@@ -51,7 +51,7 @@ class Participant(models.Model):
     participant_id = models.CharField(max_length=50, default="")  
     group_number = models.IntegerField(default=0)
     session = models.IntegerField(default=0)
-    finished = models.BooleanField(default=False)
+    finished = models.BooleanField(default=False, null=True)
     reward = models.IntegerField(default=0)
     #filename = models.FileField(upload_to='results')
     #frame = models.IntegerField(default=0)
