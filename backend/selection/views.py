@@ -86,7 +86,8 @@ def manager(request):
             if offer == "outcome":
                 # donwloading the outcome
                 winner = Winner.objects.get(group_number = group.group_number, block = int(block) - 1)
-                response = "_".join(["outcome", str(winner.wins), str(winner.reward), str(winner.charity), str(winner.completed)])
+                all_completed = winner.completed == group.participants
+                response = "_".join(["outcome", str(winner.wins), str(winner.reward), str(winner.charity), str(all_completed)])
                 return HttpResponse(response)
             else:
                 # uploading the outcome
@@ -127,7 +128,10 @@ def determineWinner(group_number, block):
     secondoffer = 0
     all_members = Participant.objects.filter(group_number = group_number)
     for p in all_members:
-        b = Bid.objects.get(participant_id = p.participant_id, block = block)
+        try:
+            b = Bid.objects.get(participant_id = p.participant_id, block = block)
+        except ObjectDoesNotExist:
+            continue
         bid = b.bid
         if bid > maxoffer:
             secondoffer = maxoffer
@@ -362,7 +366,7 @@ def deleteData(request):
 
 def removeParticipant(participant_id):
     try:
-        participant = Participant.objects.get(participant_id = participant_id)
+        participant = Participant.objects.get(participant_id = participant_id)       
         session = Session.objects.get(session_number = participant.session)
         if session.status != "ongoing":
             return("Participant není z aktivního sezení")
@@ -384,15 +388,15 @@ def removeParticipant(participant_id):
                 lastWinning.save()
         for block in range(4,7):
             group_bids = Bid.objects.filter(block = block, group_number = participant.group_number)
-            if len(group_bids) == 3:
+            if len(group_bids) == group.participants:
                 for bid in group_bids:
                     if bid.participant_id == participant_id:
                         break
                 else:
                     determineWinner(participant.group_number, block)
         return("Participant bude ve studii přeskočen")
-    except ObjectDoesNotExist:
-        return("Participant s daným id nenalezen")    
+    except ObjectDoesNotExist as e:
+        return("Participant s daným id nenalezen")
 
 
 
@@ -432,8 +436,12 @@ def administration(request):
             info = "Hotovo" 
             return(download(request))
         elif "preskocit" in answer:
-            participant_id = answer.split()[1].strip()
-            info = removeParticipant(participant_id)
+            splitted = answer.split()
+            if len(splitted) != 2:
+                info = "Participantovo id neuvedeno správně"
+            else:
+                participant_id = splitted[1].strip()
+                info = removeParticipant(participant_id)
         else:
             info = "Toto není validní příkaz"
     else:        
@@ -447,7 +455,7 @@ def administration(request):
                 parts = Participant.objects.filter(session = currentSession.session_number, finished = True)
                 for part in parts:
                     files = os.listdir(results_path())                    
-                    filePresent = any(parts.participant_id in file for file in files)
+                    filePresent = any(part.participant_id in file for file in files)
                     participants[part.participant_id] = {"reward": part.reward, "file": filePresent}
             elif status == "closed":
                 info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(currentSession.participants, currentSession.session_number)

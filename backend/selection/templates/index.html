@@ -34,7 +34,7 @@
         </p>        
         <form method="POST" id="process">
             {% csrf_token %}
-            <input type="text" name="answer" maxlength="24" size="24" autofocus required><br>
+            <input type="text" name="answer" maxlength="50" size="50" autofocus required><br>
             <input type="submit" name="continue" value="Provést" id="submitButton" class="horizontal-center" onclick="this.disabled=true; submitForm();" style="margin-bottom: 10px; margin-top: 10px;">
         </form>
     </p>
@@ -46,7 +46,7 @@
             <p>Odměny participantů, kteří již dokončili studii:</p>
             <ul> 
                 {% for participant, info in participants.items %} 
-                    <li>{% if info.file %}&#9989;{else}&#10060;{% endif %} {{participant}}: {{info.reward}}</li>
+                    <li>{% if info.file %}&#9989;{% else %}&#10060;{% endif %} {{participant}}: {{info.reward}}</li>
                 {% endfor %} 
             </ul>                 
         </p>
