@@ -117,28 +117,31 @@ def manager(request):
             group = Group.objects.get(group_number = participant.group_number)
             group_bids = Bid.objects.filter(block = block, group_number = participant.group_number)
             if len(group_bids) == group.participants:
-                highest_bidder = []
-                maxoffer = 0
-                secondoffer = 0
-                all_members = Participant.objects.filter(group_number = participant.group_number)
-                for p in all_members:
-                    b = Bid.objects.get(participant_id = p.participant_id, block = block)
-                    bid = b.bid
-                    if bid > maxoffer:
-                        secondoffer = maxoffer
-                        maxoffer = bid                        
-                        highest_bidder = [b.participant_id]
-                    elif bid == maxoffer:
-                        secondoffer = maxoffer
-                        highest_bidder.append(b.participant_id)
-                    elif bid > secondoffer:
-                        secondoffer = bid
-                random.shuffle(highest_bidder)
-                highest_bidder = highest_bidder[0]
-                winner = Winner(group_number = group.group_number, block = block, winner = highest_bidder, maxoffer = maxoffer, secondoffer = secondoffer)
-                winner.save()
+                determineWinner(participant.group_number, block)
             return HttpResponse("ok")
 
+
+def determineWinner(group_number, block):
+    highest_bidder = []
+    maxoffer = 0
+    secondoffer = 0
+    all_members = Participant.objects.filter(group_number = group_number)
+    for p in all_members:
+        b = Bid.objects.get(participant_id = p.participant_id, block = block)
+        bid = b.bid
+        if bid > maxoffer:
+            secondoffer = maxoffer
+            maxoffer = bid                        
+            highest_bidder = [b.participant_id]
+        elif bid == maxoffer:
+            secondoffer = maxoffer
+            highest_bidder.append(b.participant_id)
+        elif bid > secondoffer:
+            secondoffer = bid
+    random.shuffle(highest_bidder)
+    highest_bidder = highest_bidder[0]
+    winner = Winner(group_number = group.group_number, block = block, winner = highest_bidder, maxoffer = maxoffer, secondoffer = secondoffer)
+    winner.save()
 
 
 def results_path():
@@ -357,6 +360,41 @@ def deleteData(request):
     return HttpResponse("Data smazána")
 
 
+def removeParticipant(participant_id):
+    try:
+        participant = Participant.objects.get(participant_id = participant_id)
+        session = Session.objects.get(session_number = participant.session)
+        if session.status != "ongoing":
+            return("Participant není z aktivního sezení")
+        group = Group.objects.get(group_number = participant.group_number)
+        group.participants -= 1
+        group.save()
+        winnings = Winner.objects.filter(group_number = participant.group_number)
+        if winnings:
+            highest = 0
+            for win in winnings:
+                if win.block > highest:
+                    highest = win.block
+            lastWinning = Winner.objects.get(group_number = participant.group_number, block = highest)
+            if lastWinning.winner == participant_id and not lastWinning.completed:
+                lastWinning.wins = -99
+                lastWinning.reward = -99
+                lastWinning.charity = -99
+                lastWinning.completed = 1
+                lastWinning.save()
+        for block in range(4,7):
+            group_bids = Bid.objects.filter(block = block, group_number = participant.group_number)
+            if len(group_bids) == 3:
+                for bid in group_bids:
+                    if bid.participant_id == participant_id:
+                        break
+                else:
+                    determineWinner(participant.group_number, block)
+        return("Participant bude ve studii přeskočen")
+    except ObjectDoesNotExist:
+        return("Participant s daným id nenalezen")    
+
+
 
 @login_required(login_url='/admin/login/')
 def administration(request):
@@ -392,7 +430,10 @@ def administration(request):
                 return downloadData(content, filename)
         elif "stahnout" in answer:
             info = "Hotovo" 
-            return(download(request))            
+            return(download(request))
+        elif "preskocit" in answer:
+            participant_id = answer.split()[1].strip()
+            info = removeParticipant(participant_id)
         else:
             info = "Toto není validní příkaz"
     else:        
