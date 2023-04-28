@@ -26,6 +26,7 @@ def manager(request):
         block = request.POST.get("round")
         offer = request.POST.get("offer")
         if offer == "result":
+            # getting result of an auction
             participant = Participant.objects.get(participant_id = participant_id)            
             group = Group.objects.get(group_number = participant.group_number)
             try:
@@ -39,6 +40,7 @@ def manager(request):
                 response = ""
             return HttpResponse(response)
         elif offer == "login":
+            # login screen
             try:
                 currentSession = Session.objects.latest('start')
             except ObjectDoesNotExist:
@@ -47,11 +49,6 @@ def manager(request):
                 try:
                     Participant.objects.get(participant_id = participant_id)
                     return HttpResponse("already_logged")
-                    # participant = Participant.objects.get(participant_id = participant_id)
-                    # if participant.frame == 0:
-                    #     return HttpResponse("already_logged")
-                    # else:
-                    #     return HttpResponse("frame_" + str(participant.frame))
                 except ObjectDoesNotExist:                    
                     currentSession.participants += 1
                     currentSession.save()
@@ -76,19 +73,23 @@ def manager(request):
             else:
                 return HttpResponse("no_open")
         elif block == "-99":
+            # uploading reward at the end
             participant = Participant.objects.get(participant_id = participant_id)    
             participant.reward = offer
             participant.finished = True
             participant.save()
             return HttpResponse("ok")
         elif "outcome" in offer:
+            # outcome of the AFTER version in case of the auction round
             participant = Participant.objects.get(participant_id = participant_id)            
             group = Group.objects.get(group_number = participant.group_number)
             if offer == "outcome":
+                # donwloading the outcome
                 winner = Winner.objects.get(group_number = group.group_number, block = int(block) - 1)
                 response = "_".join(["outcome", str(winner.wins), str(winner.reward), str(winner.charity), str(winner.completed)])
                 return HttpResponse(response)
-            else:            
+            else:
+                # uploading the outcome
                 _, wins, reward, charity = offer.split("_")                
                 winner = Winner.objects.get(group_number = group.group_number, block = block)
                 if winner.winner == participant_id:
@@ -109,6 +110,7 @@ def manager(request):
             else:
                 return HttpResponse("no")
         else:
+            # recording a bid
             participant = Participant.objects.get(participant_id = participant_id) 
             bid = Bid(participant_id = participant_id, block = block, bid = offer, group_number = participant.group_number)
             bid.save()            
@@ -403,7 +405,9 @@ def administration(request):
                 info = "Probíhá sezení {} s {} participanty".format(currentSession.session_number, currentSession.participants)
                 parts = Participant.objects.filter(session = currentSession.session_number, finished = True)
                 for part in parts:
-                    participants[part.participant_id] = part.reward
+                    files = os.listdir(results_path())                    
+                    filePresent = any(parts.participant_id in file for file in files)
+                    participants[part.participant_id] = {"reward": part.reward, "file": filePresent}
             elif status == "closed":
                 info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(currentSession.participants, currentSession.session_number)
             elif status == "finished":

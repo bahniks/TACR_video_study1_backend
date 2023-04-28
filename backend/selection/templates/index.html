@@ -44,8 +44,8 @@
         <p>        
             <p>Odměny participantů, kteří již dokončili studii:</p>
             <ul> 
-                {% for participant, reward in participants.items %} 
-                    <li>{{participant}}: {{reward}}</li>
+                {% for participant, info in participants.items %} 
+                    <li>{% if info.file %}&#9989;{else}&#10060;{% endif %} {{participant}}: {{info.reward}}</li>
                 {% endfor %} 
             </ul>                 
         </p>
