@@ -84,7 +84,7 @@ def manager(request):
             participant = Participant.objects.get(participant_id = participant_id)            
             group = Group.objects.get(group_number = participant.group_number)
             if offer == "outcome":
-                # donwloading the outcome
+                # downloading the outcome
                 winner = Winner.objects.get(group_number = group.group_number, block = int(block) - 1)
                 all_completed = winner.completed == group.participants
                 response = "_".join(["outcome", str(winner.wins), str(winner.reward), str(winner.charity), str(all_completed)])
