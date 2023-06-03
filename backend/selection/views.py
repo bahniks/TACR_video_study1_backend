@@ -357,10 +357,10 @@ def delete(request):
 @login_required(login_url='/admin/login/')
 def deleteData(request):
     file_path = results_path()
-    files = os.listdir(file_path)
-    files.remove(".gitignore")
+    files = os.listdir(file_path)    
     for f in files:
-        os.remove(os.path.join(file_path, f))
+        if not ".gitignore" in f:            
+            os.remove(os.path.join(file_path, f))
     return HttpResponse("Data smazána")
 
 
