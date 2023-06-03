@@ -313,11 +313,11 @@ def downloadAll(request):
     if ".gitignore" in files:
         files.remove(".gitignore")
     tables = {"Sessions": Session, "Groups": Group, "Winners": Winner, "Participants": Participant, "Bids": Bid}
-    for table, objectType in tables.items():
-        filename = table + ".txt"
-        files.append(filename)
+    for table, objectType in tables.items():        
         content = showEntries(objectType)
         if content:
+            filename = table + ".txt"
+            files.append(filename)
             with open(os.path.join(file_path, filename), mode = "w") as f:
                 f.write(content)      
     files_to_remove = [x for x in files if x.endswith(".zip")]
