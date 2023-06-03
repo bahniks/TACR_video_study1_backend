@@ -315,11 +315,13 @@ def downloadAll(request):
     tables = {"Sessions": Session, "Groups": Group, "Winners": Winner, "Participants": Participant, "Bids": Bid}
     for table, objectType in tables.items():        
         content = showEntries(objectType)
-        if content:
-            filename = table + ".txt"
-            files.append(filename)
-            with open(os.path.join(file_path, filename), mode = "w") as f:
-                f.write(content)      
+        filename = table + ".txt"
+        files.append(filename)
+        with open(os.path.join(file_path, filename), mode = "w") as f:
+            if content:
+                f.write(content)
+            else:
+                f.write("")
     files_to_remove = [x for x in files if x.endswith(".zip")]
     for f in files_to_remove:
         os.remove(os.path.join(file_path, f))
