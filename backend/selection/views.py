@@ -317,8 +317,9 @@ def downloadAll(request):
         filename = table + ".txt"
         files.append(filename)
         content = showEntries(objectType)
-        with open(os.path.join(file_path, filename), mode = "w") as f:
-            f.write(content)      
+        if content:
+            with open(os.path.join(file_path, filename), mode = "w") as f:
+                f.write(content)      
     files_to_remove = [x for x in files if x.endswith(".zip")]
     for f in files_to_remove:
         os.remove(os.path.join(file_path, f))
