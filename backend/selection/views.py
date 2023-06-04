@@ -370,7 +370,6 @@ def deleteData(request):
 def removeParticipant(participant_id):
     try:
         participant = Participant.objects.get(participant_id = participant_id) 
-        print(participant.finished)
         if participant.finished:
             return("Participant již sezení ukončil")
         elif participant.finished is None:
