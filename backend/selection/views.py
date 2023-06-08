@@ -50,7 +50,7 @@ def manager(request):
                     Participant.objects.get(participant_id = participant_id)
                     return HttpResponse("already_logged")
                 except ObjectDoesNotExist:                    
-                    currentSession.participants += 1
+                    currentSession.participants += 1 # does not work for some reason - a workaround is through filtering participants within the session and getting the length
                     currentSession.save()
                     participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number)
                     participant.save()         
@@ -285,9 +285,9 @@ def startSession(request, response = True):
             p.save()
             num += 1
     if response:
-        return HttpResponse("Sezení {} zahájeno s {} participanty".format(currentSession.session_number, currentSession.participants))
+        return HttpResponse("Sezení {} zahájeno s {} participanty".format(currentSession.session_number, num))
     else:
-        return "Sezení {} zahájeno s {} participanty".format(currentSession.session_number, currentSession.participants)
+        return "Sezení {} zahájeno s {} participanty".format(currentSession.session_number, num)
 
 
 def showEntries(objectType):
@@ -456,22 +456,26 @@ def administration(request):
     else:        
         try:
             currentSession = Session.objects.latest('start')
+            participantsInSession = Participant.objects.filter(session = currentSession.session_number)
+            numberOfParticipants = len(participantsInSession)
             status = currentSession.status 
             if status == "open":
-                info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno".format(currentSession.participants, currentSession.session_number)
+                info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno".format(numberOfParticipants, currentSession.session_number)
             elif status == "ongoing":
-                info = "Probíhá sezení {} s {} participanty".format(currentSession.session_number, currentSession.participants)
+                info = "Probíhá sezení {} s {} participanty".format(currentSession.session_number, numberOfParticipants)
                 parts = Participant.objects.filter(session = currentSession.session_number, finished = True)
                 for part in parts:
                     files = os.listdir(results_path())                    
                     filePresent = any(part.participant_id in file for file in files)
                     participants[part.participant_id] = {"reward": part.reward, "file": filePresent}
             elif status == "closed":
-                info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(currentSession.participants, currentSession.session_number)
+                info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(numberOfParticipants, currentSession.session_number)
             elif status == "finished":
                 info = "Poslední sezení {} bylo ukončeno".format(currentSession.session_number)
         except ObjectDoesNotExist:
             info = "V databázi není žádné sezení"
+        except Exception as e:
+            info = e
     localContext = {"info": info, "status": status, "participants": participants}
     template = loader.get_template('index.html')
     return HttpResponse(template.render(localContext, request))
