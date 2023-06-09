@@ -463,7 +463,7 @@ def administration(request):
                 info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno".format(numberOfParticipants, currentSession.session_number)
             elif status == "ongoing":
                 info = "Probíhá sezení {} s {} participanty".format(currentSession.session_number, numberOfParticipants)
-                parts = Participant.objects.filter(session = currentSession.session_number, finished = True)
+                parts = Participant.objects.filter(session = currentSession.session_number, finished = True).order_by("time")
                 for part in parts:
                     files = os.listdir(results_path())                    
                     filePresent = any(part.participant_id in file for file in files)
