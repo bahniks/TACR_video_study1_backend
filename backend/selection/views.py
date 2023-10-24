@@ -6,15 +6,14 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 
 from time import localtime, strftime
+from collections import Counter
 
 import random
 import os
 import zipfile
 
-from .models import Bid, Session, Group, Participant, Winner
+from .models import Session, Group, Participant
 
-
-MAX_BDM_PRIZE = 300
 
 
 @csrf_exempt 
@@ -25,19 +24,12 @@ def manager(request):
         participant_id = request.POST.get("id")
         block = request.POST.get("round")
         offer = request.POST.get("offer")
-        if offer == "result":
-            # getting result of an auction
+        if offer == "voting":
+            # getting result of voting
             participant = Participant.objects.get(participant_id = participant_id)            
             group = Group.objects.get(group_number = participant.group_number)
-            try:
-                winner = Winner.objects.get(group_number = group.group_number, block = block)
-                myoffer = Bid.objects.get(participant_id = participant_id, block = block).bid
-                maxoffer = winner.maxoffer
-                secondoffer = winner.secondoffer
-                condition = "treatment" if participant_id == winner.winner else "control"          
-                response = "|".join(map(str, [condition, maxoffer, secondoffer, myoffer]))
-            except ObjectDoesNotExist:
-                response = ""
+            condition = "treatment" if participant.number_in_group == group.winner else "control"                                
+            response = "_".join(map(str, [condition, group.winner, group.votes]))                                        
             return HttpResponse(response)
         elif offer == "login":
             # login screen
@@ -50,7 +42,7 @@ def manager(request):
                     Participant.objects.get(participant_id = participant_id)
                     return HttpResponse("already_logged")
                 except ObjectDoesNotExist:                    
-                    currentSession.participants += 1 # does not work for some reason - a workaround is through filtering participants within the session and getting the length
+                    currentSession.participants += 1
                     currentSession.save()
                     participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number)
                     participant.save()         
@@ -61,7 +53,7 @@ def manager(request):
                     if participant.group_number == -99:
                         return HttpResponse("not_grouped")
                     group = Group.objects.get(group_number = participant.group_number)
-                    return HttpResponse("_".join(["start", str(group.bdm_one), str(group.bdm_two), group.condition]))
+                    return HttpResponse("_".join(["start", group.condition, str(participant.number_in_group)]))
                 except ObjectDoesNotExist:
                     return HttpResponse("ongoing")
             elif currentSession.status == "closed":
@@ -80,27 +72,27 @@ def manager(request):
             participant.save()
             return HttpResponse("ok")
         elif "outcome" in offer:
-            # outcome of the AFTER version in case of the auction round
+            # outcome of the AFTER version in the third round
             participant = Participant.objects.get(participant_id = participant_id)            
             group = Group.objects.get(group_number = participant.group_number)
-            if offer == "outcome":
-                # downloading the outcome
-                winner = Winner.objects.get(group_number = group.group_number, block = int(block) - 1)
-                all_completed = winner.completed == group.participants
-                response = "_".join(["outcome", str(winner.wins), str(winner.reward), str(winner.charity), str(all_completed)])
+            if offer == "outcome":       
+                finishedParticipants = Participant.objects.filter(group_number = group.group_number).exclude(finished_after = False)
+                all_completed = len(finishedParticipants) == group.participants
+                response = "outcome_"
+                for i in range(4):       
+                    p = Participant.objects.get(group_number = group.group_number, number_in_group = i+1)             
+                    response += "|".join([str(p.number_in_group), str(p.wins_in_after), str(p.reward_in_after)]) + "_"
+                response += str(all_completed)
                 return HttpResponse(response)
             else:
                 # uploading the outcome
-                _, wins, reward, charity = offer.split("_")                
-                winner = Winner.objects.get(group_number = group.group_number, block = block)
-                if winner.winner == participant_id:
-                    winner.wins = wins
-                    winner.reward = reward
-                    winner.charity = charity
-                winner.completed += 1
-                winner.save()
+                _, winsInAfter, rewardInAfter = offer.split("|")
+                participant.wins_in_after = winsInAfter
+                participant.reward_in_after = rewardInAfter
+                participant.finished_after = True
+                participant.save()
                 return HttpResponse("ok")
-        elif offer == "continue":            
+        elif offer == "continue":           
             try:
                 participant = Participant.objects.get(participant_id = participant_id)
                 currentSession = Session.objects.latest('start')
@@ -111,41 +103,39 @@ def manager(request):
             else:
                 return HttpResponse("no")
         else:
-            # recording a bid
+            # recording a vote
             participant = Participant.objects.get(participant_id = participant_id) 
-            bid = Bid(participant_id = participant_id, block = block, bid = offer, group_number = participant.group_number)
-            bid.save()            
             group = Group.objects.get(group_number = participant.group_number)
-            group_bids = Bid.objects.filter(block = block, group_number = participant.group_number)
-            if len(group_bids) == group.participants:
-                determineWinner(participant.group_number, block)
+            participant.vote = offer            
+            participant.save()            
+            votes = len(Participant.objects.filter(group_number = participant.group_number).exclude(vote = 0))
+            if votes == group.participants:
+                determineWinner(group.group_number)
             return HttpResponse("ok")
 
 
-def determineWinner(group_number, block):
-    highest_bidder = []
-    maxoffer = 0
-    secondoffer = 0
-    all_members = Participant.objects.filter(group_number = group_number)
+def determineWinner(group_number):
+    all_members = Participant.objects.filter(group_number = group_number).exclude(finished = None)
+    votes = Counter({str(i+1):0 for i in range(4)})    
     for p in all_members:
-        try:
-            b = Bid.objects.get(participant_id = p.participant_id, block = block)
-        except ObjectDoesNotExist:
-            continue
-        bid = b.bid
-        if bid > maxoffer:
-            secondoffer = maxoffer
-            maxoffer = bid                        
-            highest_bidder = [b.participant_id]
-        elif bid == maxoffer:
-            secondoffer = maxoffer
-            highest_bidder.append(b.participant_id)
-        elif bid > secondoffer:
-            secondoffer = bid
-    random.shuffle(highest_bidder)
-    highest_bidder = highest_bidder[0]
-    winner = Winner(group_number = group_number, block = block, winner = highest_bidder, maxoffer = maxoffer, secondoffer = secondoffer)
-    winner.save()
+        votes[str(p.vote)] += 1
+    ordered = votes.most_common()
+    print(ordered) # delete
+    numvotes = 0
+    mostVotes = []
+    for i, num in ordered:
+        if num < numvotes:
+            break
+        else:
+            numvotes = num
+            mostVotes += i        
+    print(mostVotes) # delete
+    random.shuffle(mostVotes)
+    mostVotes = mostVotes[0]
+    group = Group.objects.get(group_number = group_number)
+    group.winner = int(mostVotes)
+    group.votes = numvotes
+    group.save()
 
 
 def results_path():
@@ -265,25 +255,23 @@ def startSession(request, response = True):
             return HttpResponse("Není zahájeno žádné sezení")
         else:
             return "Není zahájeno žádné sezení"        
-    currentSession.status = "ongoing"
-    currentSession.save()
-    participants = Participant.objects.filter(session = currentSession.session_number)
+    participants = [participant.participant_id for participant in Participant.objects.filter(session = currentSession.session_number)]
     number = len(participants)
     groups = number//4
-    assignment = [i for i in range(number)]
-    random.shuffle(assignment)    
+    random.shuffle(participants)    
     num = 0
     for i in range(groups):
-        bdm_one = random.randint(1, MAX_BDM_PRIZE)
-        bdm_two = random.randint(1, MAX_BDM_PRIZE)
-        condition = random.choice(["lowinfo", "highinfo", "lowcontrol", "highcontrol"])
-        group = Group(session = currentSession.session_number, participants = 4, bdm_one = bdm_one, bdm_two = bdm_two, condition = condition)
+        condition = random.choice(["others_kept", "charity_kept", "charity_divided", "experimenter_kept", "experimenter_divided"])
+        group = Group(session = currentSession.session_number, participants = 4, condition = condition)
         group.save()
         for j in range(4):
-            p = participants[num]
+            p = Participant.objects.get(participant_id = participants[num])
             p.group_number = group.group_number
+            p.number_in_group = j+1
             p.save()
             num += 1
+    currentSession.status = "ongoing"
+    currentSession.save()
     if response:
         return HttpResponse("Sezení {} zahájeno s {} participanty".format(currentSession.session_number, num))
     else:
@@ -312,7 +300,7 @@ def downloadAll(request):
     files = os.listdir(file_path)
     if ".gitignore" in files:
         files.remove(".gitignore")
-    tables = {"Sessions": Session, "Groups": Group, "Winners": Winner, "Participants": Participant, "Bids": Bid}
+    tables = {"Sessions": Session, "Groups": Group, "Participants": Participant}
     for table, objectType in tables.items():        
         content = showEntries(objectType)
         filename = table + ".txt"
@@ -351,9 +339,7 @@ def downloadAll(request):
 def delete(request):
     Session.objects.all().delete() # pylint: disable=no-member
     Group.objects.all().delete() # pylint: disable=no-member
-    Winner.objects.all().delete() # pylint: disable=no-member
     Participant.objects.all().delete() # pylint: disable=no-member
-    Bid.objects.all().delete() # pylint: disable=no-member
     return HttpResponse("Databáze vyčištěna")
 
 
@@ -383,26 +369,9 @@ def removeParticipant(participant_id):
         group = Group.objects.get(group_number = participant.group_number)
         group.participants -= 1
         group.save()
-        winnings = Winner.objects.filter(group_number = participant.group_number)
-        if winnings:
-            highest = 0
-            for win in winnings:
-                if win.block > highest:
-                    highest = win.block
-            lastWinning = Winner.objects.get(group_number = participant.group_number, block = highest)
-            if lastWinning.winner == participant_id and not lastWinning.wins and not lastWinning.reward and not lastWinning.charity:
-                lastWinning.wins = -99
-                lastWinning.reward = -99
-                lastWinning.charity = -99
-                lastWinning.save()
-        for block in range(4,7):
-            group_bids = Bid.objects.filter(block = block, group_number = participant.group_number)
-            if len(group_bids) == group.participants:
-                for bid in group_bids:
-                    if bid.participant_id == participant_id:
-                        break
-                else:
-                    determineWinner(participant.group_number, block)
+        group_votes = Participant.objects.filter(group_number = participant.group_number).exclude(vote = 0).exclude(finished = None)
+        if len(group_votes) == group.participants:
+            determineWinner(participant.group_number)
         return("Participant bude ve studii přeskočen")
     except ObjectDoesNotExist as e:
         return("Participant s daným id nenalezen")
@@ -427,7 +396,7 @@ def administration(request):
             info = "Hotovo"            
             if "vse" in answer and ("data" in answer or "stahnout"):
                 return downloadAll(request)
-            pattern = {"sezeni": Session, "skupiny": Group, "vyherc": Winner, "participant": Participant, "nabidky": Bid}
+            pattern = {"sezeni": Session, "skupiny": Group, "participant": Participant}
             for key in pattern:
                 if key in answer:
                     content = showEntries(pattern[key])
@@ -439,7 +408,7 @@ def administration(request):
             elif "ukazat" in answer:
                 return HttpResponse(content, content_type='text/plain')
             else:
-                filename = {"sezeni": "Sessions", "skupiny": "Groups", "vyherc": "Winners", "participant": "Participants", "nabidky": "Bids"}[key]
+                filename = {"sezeni": "Sessions", "skupiny": "Groups", "participant": "Participants"}[key]
                 return downloadData(content, filename)
         elif "stahnout" in answer:
             info = "Hotovo" 
