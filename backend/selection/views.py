@@ -120,7 +120,6 @@ def determineWinner(group_number):
     for p in all_members:
         votes[str(p.vote)] += 1
     ordered = votes.most_common()
-    print(ordered) # delete
     numvotes = 0
     mostVotes = []
     for i, num in ordered:
@@ -129,7 +128,6 @@ def determineWinner(group_number):
         else:
             numvotes = num
             mostVotes += i        
-    print(mostVotes) # delete
     random.shuffle(mostVotes)
     mostVotes = mostVotes[0]
     group = Group.objects.get(group_number = group_number)
