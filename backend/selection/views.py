@@ -12,7 +12,7 @@ import random
 import os
 import zipfile
 
-from .models import Session, Group, Participant
+from .models import Session, Group, Participant, Pair, Decision, Response
 
 
 
@@ -102,6 +102,59 @@ def manager(request):
                 return HttpResponse("continue")
             else:
                 return HttpResponse("no")
+        elif offer == "pairing":
+            participant = Participant.objects.get(participant_id = participant_id)                 
+            pair = Pair.objects.get(pairNumber = participant.pairNumber)
+            if participant.role == "A":
+                pair.preparedA = True                                
+            else:
+                pair.preparedB = True
+            pair.save()
+            if not (pair.preparedA and pair.preparedB):
+                return HttpResponse("")
+            else:
+                pairNumber = pair.pairNumber
+                role = participant.role
+                condition = pair.condition
+                response = "_".join([str(pairNumber), role, condition])
+                return HttpResponse(response)         
+        elif block == "dictator1A" or block == "dictator2A":
+            participant = Participant.objects.get(participant_id = participant_id)                 
+            roundNumber = int(block.lstrip("dictator").rstrip("A"))
+            decision = Decision(pairNumber = participant.pairNumber, roundNumber = roundNumber, took = int(offer))
+            decision.save()
+            print(decision)
+            return HttpResponse("ok")
+        elif block == "dictator1B":
+            participant = Participant.objects.get(participant_id = participant_id)                 
+            responses = offer.split("_")
+            for r in responses:
+                decision, response, message, money = r.split("|")
+                response = Response(pairNumber = participant.pairNumber, decision = int(decision), response = response, message = int(message), money = int(money))
+                response.save()
+            return HttpResponse("ok")
+        elif offer == "decision1":
+            participant = Participant.objects.get(participant_id = participant_id) 
+            pair = Pair.objects.get(pairNumber = participant.pairNumber)            
+            try:
+                pairNumber = pair.pairNumber
+                decision = Decision.objects.get(pairNumber = pairNumber, roundNumber = 1)                                
+                took = decision.took                
+                response = Response.objects.get(pairNumber = pairNumber, decision = took)
+                data = "_".join(map(str, [pairNumber, took, response.response, response.message, response.money]))    
+                return HttpResponse(data)
+            except ObjectDoesNotExist:
+                return HttpResponse("")
+        elif offer == "decision2":
+            participant = Participant.objects.get(participant_id = participant_id) 
+            pair = Pair.objects.get(pairNumber = participant.pairNumber)            
+            try:
+                pairNumber = pair.pairNumber
+                decision = Decision.objects.get(pairNumber = pairNumber, roundNumber = 2)                
+                data = "_".join(map(str, [pairNumber, decision.took]))    
+                return HttpResponse(data)
+            except ObjectDoesNotExist:
+                return HttpResponse("")            
         else:
             # recording a vote
             participant = Participant.objects.get(participant_id = participant_id) 
@@ -268,6 +321,21 @@ def startSession(request, response = True):
             p.number_in_group = j+1
             p.save()
             num += 1
+    pairs = number//2
+    toBePaired = participants[:groups*4]
+    random.shuffle(toBePaired)
+    for i in range(pairs):
+        condition = random.choice(["forgive-ignore", "ignore-punish", "forgive-punish"])
+        pair = Pair(session = currentSession.session_number, condition = condition, roleA = toBePaired[i*2], roleB = toBePaired[i*2+1])
+        pair.save()
+        pA = Participant.objects.get(participant_id = toBePaired[i*2])
+        pA.role = "A"
+        pA.pairNumber = pair.pairNumber
+        pA.save()
+        pB = Participant.objects.get(participant_id = toBePaired[i*2+1])
+        pB.role = "B"
+        pB.pairNumber = pair.pairNumber
+        pB.save()
     currentSession.status = "ongoing"
     currentSession.save()
     if response:
@@ -298,7 +366,7 @@ def downloadAll(request):
     files = os.listdir(file_path)
     if ".gitignore" in files:
         files.remove(".gitignore")
-    tables = {"Sessions": Session, "Groups": Group, "Participants": Participant}
+    tables = {"Sessions": Session, "Groups": Group, "Participants": Participant, "Pairs": Pair, "Decisions": Decision, "Responses": Response}
     for table, objectType in tables.items():        
         content = showEntries(objectType)
         filename = table + ".txt"
@@ -338,6 +406,9 @@ def delete(request):
     Session.objects.all().delete() # pylint: disable=no-member
     Group.objects.all().delete() # pylint: disable=no-member
     Participant.objects.all().delete() # pylint: disable=no-member
+    Pair.objects.all().delete()
+    Decision.objects.all().delete()
+    Response.objects.all().delete()
     return HttpResponse("Databáze vyčištěna")
 
 
@@ -352,6 +423,7 @@ def deleteData(request):
 
 
 def removeParticipant(participant_id):
+    # pridat diktatora
     try:
         participant = Participant.objects.get(participant_id = participant_id) 
         if participant.finished:
@@ -394,7 +466,7 @@ def administration(request):
             info = "Hotovo"            
             if "vse" in answer and ("data" in answer or "stahnout"):
                 return downloadAll(request)
-            pattern = {"sezeni": Session, "skupiny": Group, "participant": Participant}
+            pattern = {"sezeni": Session, "skupiny": Group, "participant": Participant, "pary": Pair, "rozhodnuti": Decision, "reakce": Response}
             for key in pattern:
                 if key in answer:
                     content = showEntries(pattern[key])
@@ -406,7 +478,7 @@ def administration(request):
             elif "ukazat" in answer:
                 return HttpResponse(content, content_type='text/plain')
             else:
-                filename = {"sezeni": "Sessions", "skupiny": "Groups", "participant": "Participants"}[key]
+                filename = {"sezeni": "Sessions", "skupiny": "Groups", "participant": "Participants", "pary": "Pairs", "rozhodnuti": "Decisions", "reakce": "Responses"}[key]
                 return downloadData(content, filename)
         elif "stahnout" in answer:
             info = "Hotovo" 
