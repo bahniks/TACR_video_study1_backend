@@ -20,6 +20,7 @@ class Group(models.Model):
     condition = models.CharField(max_length=12, default="")
     winner = models.IntegerField(default=0)
     votes = models.IntegerField(default=0)
+    winning_block = models.IntegerField(default=0)
 
     def __str__(self):
         field_values = []
@@ -29,6 +30,7 @@ class Group(models.Model):
 
 class Participant(models.Model):
     participant_id = models.CharField(max_length=50, default="")  
+    id_number = models.AutoField(primary_key=True) 
     group_number = models.IntegerField(default=0)    
     number_in_group = models.IntegerField(default=0)
     session = models.IntegerField(default=0)    
@@ -36,6 +38,8 @@ class Participant(models.Model):
     wins_in_after = models.IntegerField(default=0)
     reward_in_after = models.IntegerField(default=0)
     finished_after = models.BooleanField(default=False)
+    reward_in_fourth = models.IntegerField(default=0)
+    finished_fourth = models.BooleanField(default=False)
     vote = models.IntegerField(default=0)
     finished = models.BooleanField(default=False, null=True)
     reward = models.IntegerField(default=0)

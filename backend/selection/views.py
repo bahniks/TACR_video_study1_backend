@@ -53,7 +53,7 @@ def manager(request):
                     if participant.group_number == -99:
                         return HttpResponse("not_grouped")
                     group = Group.objects.get(group_number = participant.group_number)
-                    return HttpResponse("_".join(["start", group.condition, str(participant.number_in_group)]))
+                    return HttpResponse("_".join(["start", group.condition, str(participant.number_in_group), str(group.winning_block), str(participant.id_number)]))
                 except ObjectDoesNotExist:
                     return HttpResponse("ongoing")
             elif currentSession.status == "closed":
@@ -86,12 +86,29 @@ def manager(request):
                 return HttpResponse(response)
             else:
                 # uploading the outcome
-                _, winsInAfter, rewardInAfter = offer.split("|")
-                participant.wins_in_after = winsInAfter
-                participant.reward_in_after = rewardInAfter
-                participant.finished_after = True
+                if block == "3":
+                    _, winsInAfter, rewardInAfter = offer.split("|")
+                    participant.wins_in_after = winsInAfter
+                    participant.reward_in_after = rewardInAfter
+                    participant.finished_after = True
+                elif block == "4":
+                    _, rewardInFourth = offer.split("|")
+                    participant.reward_in_fourth = rewardInFourth
+                    participant.finished_fourth = True
                 participant.save()
                 return HttpResponse("ok")
+        elif offer == "result":
+            # sending outcome of all group members in the fourth round
+            participant = Participant.objects.get(participant_id = participant_id)            
+            group = Group.objects.get(group_number = participant.group_number)  
+            finishedParticipants = Participant.objects.filter(group_number = group.group_number).exclude(finished_fourth = False)
+            all_completed = len(finishedParticipants) == group.participants
+            response = "result_"
+            for i in range(4):       
+                p = Participant.objects.get(group_number = group.group_number, number_in_group = i+1)             
+                response += "_" + str(p.reward_in_fourth)
+            response += "_" + str(all_completed)
+            return HttpResponse(response)            
         elif offer == "continue":           
             try:
                 participant = Participant.objects.get(participant_id = participant_id)
@@ -313,7 +330,8 @@ def startSession(request, response = True):
     num = 0
     for i in range(groups):
         condition = random.choice(["others_kept", "charity_kept", "charity_divided", "experimenter_kept", "experimenter_divided"])
-        group = Group(session = currentSession.session_number, participants = 4, condition = condition)
+        block = random.randint(1, 4)
+        group = Group(session = currentSession.session_number, participants = 4, condition = condition, winning_block = block)
         group.save()
         for j in range(4):
             p = Participant.objects.get(participant_id = participants[num])
