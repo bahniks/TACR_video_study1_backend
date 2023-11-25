@@ -30,7 +30,6 @@ class Group(models.Model):
 
 class Participant(models.Model):
     participant_id = models.CharField(max_length=50, default="")  
-    id_number = models.AutoField(primary_key=True) 
     group_number = models.IntegerField(default=0)    
     number_in_group = models.IntegerField(default=0)
     session = models.IntegerField(default=0)    

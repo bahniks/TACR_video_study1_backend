@@ -53,7 +53,7 @@ def manager(request):
                     if participant.group_number == -99:
                         return HttpResponse("not_grouped")
                     group = Group.objects.get(group_number = participant.group_number)
-                    return HttpResponse("_".join(["start", group.condition, str(participant.number_in_group), str(group.winning_block), str(participant.id_number)]))
+                    return HttpResponse("_".join(["start", group.condition, str(participant.number_in_group), str(group.winning_block), str(participant.id)]))
                 except ObjectDoesNotExist:
                     return HttpResponse("ongoing")
             elif currentSession.status == "closed":
@@ -103,7 +103,7 @@ def manager(request):
             group = Group.objects.get(group_number = participant.group_number)  
             finishedParticipants = Participant.objects.filter(group_number = group.group_number).exclude(finished_fourth = False)
             all_completed = len(finishedParticipants) == group.participants
-            response = "result_"
+            response = "result"
             for i in range(4):       
                 p = Participant.objects.get(group_number = group.group_number, number_in_group = i+1)             
                 response += "_" + str(p.reward_in_fourth)
