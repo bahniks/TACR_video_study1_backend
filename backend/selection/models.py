@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class Session(models.Model):
@@ -44,6 +45,8 @@ class Participant(models.Model):
     reward = models.IntegerField(default=0)
     pairNumber = models.IntegerField(default=0)    
     role = models.CharField(max_length=1, default="") 
+    screen = models.IntegerField(default=0)
+    lastprogress = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         field_values = []

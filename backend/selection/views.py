@@ -4,6 +4,7 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 from time import localtime, strftime
 from collections import Counter
@@ -31,6 +32,12 @@ def manager(request):
             condition = "treatment" if participant.number_in_group == group.winner else "control"                                
             response = "_".join(map(str, [condition, group.winner, group.votes]))                                        
             return HttpResponse(response)
+        elif offer == "progress":
+            participant = Participant.objects.get(participant_id = participant_id)            
+            participant.screen = int(block)
+            participant.lastprogress = timezone.now()
+            participant.save()
+            return HttpResponse("ok")  
         elif offer == "login":
             # login screen
             try:
@@ -486,6 +493,7 @@ def removeParticipant(participant_id):
 @login_required(login_url='/admin/login/')
 def administration(request):
     participants = {}
+    waiting = {}
     status = ""
     if request.method == "POST" and request.POST['answer'].strip():
         answer = request.POST['answer']
@@ -542,6 +550,12 @@ def administration(request):
                     files = os.listdir(results_path())                    
                     filePresent = any(part.participant_id in file for file in files)
                     participants[part.participant_id] = {"reward": part.reward, "file": filePresent}
+                waits = Participant.objects.filter(session = currentSession.session_number, finished = False).order_by("lastprogress")
+                waiting = {}
+                for wait in waits:
+                    duration = timezone.now() - wait.lastprogress
+                    if duration.seconds > 300:
+                        waiting[wait.participant_id] = {"group": wait.group_number, "pair": wait.pairNumber, "screen": wait.screen, "time": duration.seconds}
             elif status == "closed":
                 info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(numberOfParticipants, currentSession.session_number)
             elif status == "finished":
@@ -550,6 +564,6 @@ def administration(request):
             info = "V databázi není žádné sezení"
         except Exception as e:
             info = e
-    localContext = {"info": info, "status": status, "participants": participants}
+    localContext = {"info": info, "status": status, "participants": participants, "waiting": waiting}
     template = loader.get_template('index.html')
     return HttpResponse(template.render(localContext, request))

@@ -51,5 +51,29 @@
             </ul>                 
         </p>
     {% endif %} 
+    <br>
+    {% if status == "ongoing" and waiting %}   
+    <p>        
+        <p style="font-weight:bold">Déle čekající participanti:</p>
+        <table>
+            <tr>
+              <th>ID</th>
+              <th>Skupina</th>
+              <th>Pár</th>
+              <th>Obrazovka</th>
+              <th>Čas</th>
+            </tr>
+            {% for participant, info in waiting.items %} 
+            <tr>
+              <th style="font-weight:normal"> {{ participant }}</th>
+              <th style="font-weight:normal"> {{ info.group }}</th>
+              <th style="font-weight:normal"> {{ info.pair }}</th>
+              <th style="font-weight:normal"> {{ info.screen }}</th>
+              <th style="font-weight:normal"> {{ info.time }} s</th>
+            </tr> 
+            {% endfor %}
+        </table>
+    </p>
+    {% endif %}
 </div>
 {% endblock %}
