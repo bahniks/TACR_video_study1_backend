@@ -81,7 +81,8 @@ def manager(request):
                 response = "outcome_"
                 for i in range(4):       
                     p = Participant.objects.get(group_number = group.group_number, number_in_group = i+1)             
-                    response += "|".join([str(p.number_in_group), str(p.wins_in_after), str(p.reward_in_after)]) + "_"
+                    wins = str(p.wins_in_after) if not p.finished is None else "-99"
+                    response += "|".join([str(p.number_in_group), wins, str(p.reward_in_after)]) + "_"
                 response += str(all_completed)
                 return HttpResponse(response)
             else:
@@ -105,8 +106,11 @@ def manager(request):
             all_completed = len(finishedParticipants) == group.participants
             response = "result"
             for i in range(4):       
-                p = Participant.objects.get(group_number = group.group_number, number_in_group = i+1)             
-                response += "_" + str(p.reward_in_fourth)
+                p = Participant.objects.get(group_number = group.group_number, number_in_group = i+1)    
+                if p.finished is None:
+                    response += "_-99"         
+                else:                    
+                    response += "_" + str(p.reward_in_fourth)
             response += "_" + str(all_completed)
             return HttpResponse(response)            
         elif offer == "continue":           
@@ -139,8 +143,7 @@ def manager(request):
             participant = Participant.objects.get(participant_id = participant_id)                 
             roundNumber = int(block.lstrip("dictator").rstrip("A"))
             decision = Decision(pairNumber = participant.pairNumber, roundNumber = roundNumber, took = int(offer))
-            decision.save()
-            print(decision)
+            decision.save()            
             return HttpResponse("ok")
         elif block == "dictator1B":
             participant = Participant.objects.get(participant_id = participant_id)                 
@@ -158,7 +161,7 @@ def manager(request):
                 decision = Decision.objects.get(pairNumber = pairNumber, roundNumber = 1)                                
                 took = decision.took                
                 response = Response.objects.get(pairNumber = pairNumber, decision = took)
-                data = "_".join(map(str, [pairNumber, took, response.response, response.message, response.money]))    
+                data = "_".join(map(str, [pairNumber, took, response.response, response.message, response.money])) 
                 return HttpResponse(data)
             except ObjectDoesNotExist:
                 return HttpResponse("")
@@ -239,7 +242,7 @@ def download(request):
         currentSession = Session.objects.latest('start').session_number
     except ObjectDoesNotExist:
         currentSession = "X"
-    zip_filename = "data_Selection1_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files))
+    zip_filename = "data_Selection2_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files))
     zip_file_path = os.path.join(file_path, zip_filename)
     with zipfile.ZipFile(zip_file_path, "w") as zip_file:
         for file in files:
@@ -441,7 +444,6 @@ def deleteData(request):
 
 
 def removeParticipant(participant_id):
-    # pridat diktatora
     try:
         participant = Participant.objects.get(participant_id = participant_id) 
         if participant.finished:
@@ -454,6 +456,21 @@ def removeParticipant(participant_id):
         session = Session.objects.get(session_number = participant.session)
         if session.status != "ongoing":
             return("Participant není z aktivního sezení")
+        pair = Pair.objects.get(pairNumber = participant.pairNumber)
+        if participant.role == "A":
+            pair.preparedA = True       
+            decision1 = Decision(pairNumber = participant.pairNumber, roundNumber = 1, took = 0)
+            decision1.save()                                
+            decision2 = Decision(pairNumber = participant.pairNumber, roundNumber = 2, took = 0)
+            decision2.save()                                
+        else:
+            pair.preparedB = True
+            for r in range(6):
+                message = random.randint(1,2)
+                res = random.randint(0,1)
+                response = Response(pairNumber = participant.pairNumber, decision = r*2, response = pair.condition.split("-")[res], message = message, money = 0)
+                response.save()  
+        pair.save()      
         group = Group.objects.get(group_number = participant.group_number)
         group.participants -= 1
         group.save()
