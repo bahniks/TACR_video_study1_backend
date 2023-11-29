@@ -413,7 +413,7 @@ def downloadAll(request):
         currentSession = Session.objects.latest('start').session_number
     except ObjectDoesNotExist:
         currentSession = "X"
-    zip_filename = "all_data_Selection1_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files) - len(tables))
+    zip_filename = "all_data_Selection2_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files) - len(tables))
     zip_file_path = os.path.join(file_path, zip_filename)
     with zipfile.ZipFile(zip_file_path, "w") as zip_file:
         for file in files:
