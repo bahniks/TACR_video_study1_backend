@@ -349,7 +349,7 @@ def startSession(request, response = True):
             p.number_in_group = j+1
             p.save()
             num += 1
-    pairs = groups/2
+    pairs = groups*2
     toBePaired = participants[:groups*4]
     random.shuffle(toBePaired)
     for i in range(pairs):
