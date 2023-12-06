@@ -333,6 +333,8 @@ def startSession(request, response = True):
             return HttpResponse("Není zahájeno žádné sezení")
         else:
             return "Není zahájeno žádné sezení"        
+    currentSession.status = "ongoing"
+    currentSession.save()
     participants = [participant.participant_id for participant in Participant.objects.filter(session = currentSession.session_number)]
     number = len(participants)
     groups = number//4
@@ -364,8 +366,6 @@ def startSession(request, response = True):
         pB.role = "B"
         pB.pairNumber = pair.pairNumber
         pB.save()
-    currentSession.status = "ongoing"
-    currentSession.save()
     if response:
         return HttpResponse("Sezení {} zahájeno s {} participanty".format(currentSession.session_number, num))
     else:
