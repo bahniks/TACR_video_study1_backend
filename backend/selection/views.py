@@ -13,12 +13,51 @@ import random
 import os
 import zipfile
 
-from .models import Session, Group, Participant, Pair, Decision, Response
+from .models import Session, Group, Participant, Pair, Outcome
+
+
+# TODO
+# import itertools
+
+# def generate_pairings(players):
+#     # Generate all possible pairings from the players
+#     all_pairings = list(itertools.combinations(players, 2))
+#     return all_pairings
+
+# def is_valid_round(round_pairings, used_pairs):
+#     # Check if the current round has any repeated pairs
+#     for pair in round_pairings:
+#         if pair in used_pairs:
+#             return False
+#     return True
+
+# def generate_rounds(players, rounds=3):
+#     all_pairings = generate_pairings(players)
+#     used_pairs = set()
+#     rounds_list = []
+    
+#     for _ in range(rounds):
+#         round_pairings = []
+#         available_pairings = [pair for pair in all_pairings if pair not in used_pairs]
+        
+#         while len(round_pairings) < len(players) // 2:
+#             pair = available_pairings.pop(0)
+#             round_pairings.append(pair)
+#             used_pairs.add(pair)
+        
+#         rounds_list.append(round_pairings)
+    
+#     return rounds_list
+
+
+
+
 
 
 
 @csrf_exempt 
 def manager(request):
+    # TODO
     if request.method == "GET":
         return HttpResponse("test")
     elif request.method == "POST":
@@ -183,37 +222,10 @@ def manager(request):
             except ObjectDoesNotExist:
                 return HttpResponse("")            
         else:
-            # recording a vote
-            participant = Participant.objects.get(participant_id = participant_id) 
-            group = Group.objects.get(group_number = participant.group_number)
-            participant.vote = offer            
-            participant.save()            
-            votes = len(Participant.objects.filter(group_number = participant.group_number).exclude(vote = 0))
-            if votes == group.participants:
-                determineWinner(group.group_number)
-            return HttpResponse("ok")
+            # TODO
+            pass
 
 
-def determineWinner(group_number):
-    all_members = Participant.objects.filter(group_number = group_number).exclude(finished = None)
-    votes = Counter({str(i+1):0 for i in range(4)})    
-    for p in all_members:
-        votes[str(p.vote)] += 1
-    ordered = votes.most_common()
-    numvotes = 0
-    mostVotes = []
-    for i, num in ordered:
-        if num < numvotes:
-            break
-        else:
-            numvotes = num
-            mostVotes += i        
-    random.shuffle(mostVotes)
-    mostVotes = mostVotes[0]
-    group = Group.objects.get(group_number = group_number)
-    group.winner = int(mostVotes)
-    group.votes = numvotes
-    group.save()
 
 
 def results_path():
@@ -249,7 +261,7 @@ def download(request):
         currentSession = Session.objects.latest('start').session_number
     except ObjectDoesNotExist:
         currentSession = "X"
-    zip_filename = "data_Selection2_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files))
+    zip_filename = "data_Selection3_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), currentSession, len(files))
     zip_file_path = os.path.join(file_path, zip_filename)
     with zipfile.ZipFile(zip_file_path, "w") as zip_file:
         for file in files:
@@ -324,6 +336,7 @@ def endSession(request, response = True):
 
 @login_required(login_url='/admin/login/')
 def startSession(request, response = True):
+    # TODO
     try:
         currentSession = Session.objects.latest('start')
         if currentSession.status == "finished" or currentSession.status == "ongoing":
@@ -394,7 +407,7 @@ def downloadAll(request):
     files = os.listdir(file_path)
     if ".gitignore" in files:
         files.remove(".gitignore")
-    tables = {"Sessions": Session, "Groups": Group, "Participants": Participant, "Pairs": Pair, "Decisions": Decision, "Responses": Response}
+    tables = {"Sessions": Session, "Groups": Group, "Participants": Participant, "Pairs": Pair, "Outcomes": Outcome}
     for table, objectType in tables.items():        
         content = showEntries(objectType)
         filename = table + ".txt"
@@ -435,8 +448,7 @@ def delete(request):
     Group.objects.all().delete() # pylint: disable=no-member
     Participant.objects.all().delete() # pylint: disable=no-member
     Pair.objects.all().delete()
-    Decision.objects.all().delete()
-    Response.objects.all().delete()
+    Outcome.objects.all().delete()
     return HttpResponse("Databáze vyčištěna")
 
 
@@ -451,6 +463,7 @@ def deleteData(request):
 
 
 def removeParticipant(participant_id):
+    # TODO
     try:
         participant = Participant.objects.get(participant_id = participant_id) 
         if participant.finished:
@@ -509,7 +522,7 @@ def administration(request):
             info = "Hotovo"            
             if "vse" in answer and ("data" in answer or "stahnout"):
                 return downloadAll(request)
-            pattern = {"sezeni": Session, "skupiny": Group, "participant": Participant, "pary": Pair, "rozhodnuti": Decision, "reakce": Response}
+            pattern = {"sezeni": Session, "skupiny": Group, "participant": Participant, "pary": Pair, "vysledky": Outcome}
             for key in pattern:
                 if key in answer:
                     content = showEntries(pattern[key])
@@ -521,7 +534,7 @@ def administration(request):
             elif "ukazat" in answer:
                 return HttpResponse(content, content_type='text/plain')
             else:
-                filename = {"sezeni": "Sessions", "skupiny": "Groups", "participant": "Participants", "pary": "Pairs", "rozhodnuti": "Decisions", "reakce": "Responses"}[key]
+                filename = {"sezeni": "Sessions", "skupiny": "Groups", "participant": "Participants", "pary": "Pairs", "vysledky": "Outcome"}[key]
                 return downloadData(content, filename)
         elif "stahnout" in answer:
             info = "Hotovo" 
