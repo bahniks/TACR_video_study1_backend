@@ -19,7 +19,7 @@ class Group(models.Model):
     group_number = models.AutoField(primary_key=True)   
     session = models.IntegerField(default=0)
     participants = models.IntegerField(default=0)
-    condition = models.CharField(max_length=12, default="")
+    condition = models.CharField(max_length=15, default="")
     reward_order = models.CharField(max_length=12, default="") # high-low or low-high
 
     def __str__(self):
@@ -37,7 +37,12 @@ class Participant(models.Model):
     winning_trust = models.IntegerField(default=0)
     finished = models.BooleanField(default=False, null=True)
     reward = models.IntegerField(default=0)
+    pair3 = models.IntegerField(default=-1)
+    pair4 = models.IntegerField(default=-1)
+    pair5 = models.IntegerField(default=-1)
+    pair6 = models.IntegerField(default=-1)
     token = models.BooleanField(default=False)
+    paidtoken = models.BooleanField(default=None, null=True)
     screen = models.IntegerField(default=0)
     lastprogress = models.DateTimeField(default=timezone.now)
 
@@ -56,7 +61,8 @@ class Pair(models.Model):
     condition = models.CharField(max_length=20, default="") 
     token = models.BooleanField(default=None, null=True)
     returns = models.CharField(max_length=40, default="") 
-    returned = models.IntegerField(default=0)
+    sentA = models.IntegerField(default=0)  
+    sentB = models.IntegerField(default=-1)  
     roleA = models.CharField(max_length=50, default="") 
     roleB = models.CharField(max_length=50, default="")
     preparedA = models.BooleanField(default=False) 
@@ -74,7 +80,7 @@ class Outcome(models.Model):
     roundNumber = models.IntegerField(default=0)     
     wins = models.IntegerField(default=0)    
     reward = models.IntegerField(default=0)    
-    version = models.CharField(max_length=10, default="")     
+    version = models.CharField(max_length=25, default="")
 
     def __str__(self):
         field_values = []

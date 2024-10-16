@@ -23,7 +23,6 @@ from .combinations import generate_rounds, generate_third
 
 @csrf_exempt 
 def manager(request):
-    # TODO
     if request.method == "GET":
         return HttpResponse("test")
     elif request.method == "POST":
@@ -54,11 +53,20 @@ def manager(request):
                     return HttpResponse("login_successful")   
             elif currentSession.status == "ongoing":
                 try:
-                    participant = Participant.objects.get(participant_id = participant_id)
-                    if participant.group_number == -99:
+                    p = Participant.objects.get(participant_id = participant_id)
+                    if p.group_number == -99:
                         return HttpResponse("not_grouped")
-                    group = Group.objects.get(group_number = participant.group_number)
-                    return HttpResponse("_".join(["start", group.condition, str(participant.number_in_group), str(group.winning_block), str(participant.id)]))
+                    group = Group.objects.get(group_number = p.group_number)
+                    lastpair = Pair.objects.get(pairNumber = p.pair6)                    
+                    trustPairs = f"{p.pair3}{p.pair4}{p.pair5}{p.pair6}"                    
+                    trustRoles = []
+                    for i in range(3,7):
+                        pair = Pair.objects.get(pairNumber = getattr(p, f"pair{i}"))
+                        role = "A" if pair.roleA == participant_id else "B"
+                        trustRoles.append(role)
+                    trustRoles = "_".join(trustRoles)
+                    response = "|".join(["start", group.condition, group.reward_order, str(lastpair.token), str(p.winning_block), str(p.winning_trust), trustRoles, trustPairs])
+                    return HttpResponse(response)
                 except ObjectDoesNotExist:
                     return HttpResponse("ongoing")
             elif currentSession.status == "closed":
@@ -77,62 +85,57 @@ def manager(request):
             participant.save()
             return HttpResponse("ok")
         elif offer == "trust":
-            # getting result of voting
-            participant = Participant.objects.get(participant_id = participant_id)            
-            group = Group.objects.get(group_number = participant.group_number)
-            condition = "treatment" if participant.number_in_group == group.winner else "control"                                
-            response = "_".join(map(str, [condition, group.winner, group.votes]))                                        
-            return HttpResponse(response)
-        elif offer == "token":
-            pass
-        elif offer == "outcome":
-            pass
-        elif "trust" in offer:
-            pass
-        elif offer.starstwith("outcome"):
-            pass
-        elif "outcome" in offer:
-            # outcome of the AFTER version in the third round
-            participant = Participant.objects.get(participant_id = participant_id)            
-            group = Group.objects.get(group_number = participant.group_number)
-            if offer == "outcome":       
-                finishedParticipants = Participant.objects.filter(group_number = group.group_number).exclude(finished_after = False)
-                all_completed = len(finishedParticipants) == group.participants
-                response = "outcome_"
-                for i in range(4):       
-                    p = Participant.objects.get(group_number = group.group_number, number_in_group = i+1)             
-                    wins = str(p.wins_in_after) if not p.finished is None else "-99"
-                    response += "|".join([str(p.number_in_group), wins, str(p.reward_in_after)]) + "_"
-                response += str(all_completed)
-                return HttpResponse(response)
+            # receiving results from a trust game 
+            participant = Participant.objects.get(participant_id = participant_id)                                      
+            pair = Pair.objects.get(pairNumber = getattr(participant, f"pair{int(block) + 2}"))
+            if pair.preparedA and pair.preparedB and pair.sentB >= 0:
+                response = "_".join(map(str, [block, pair.sentA, pair.sentB]))
             else:
-                # uploading the outcome
-                if block == "3":
-                    _, winsInAfter, rewardInAfter = offer.split("|")
-                    participant.wins_in_after = winsInAfter
-                    participant.reward_in_after = rewardInAfter
-                    participant.finished_after = True
-                elif block == "4":
-                    _, rewardInFourth = offer.split("|")
-                    participant.reward_in_fourth = rewardInFourth
-                    participant.finished_fourth = True
-                participant.save()
-                return HttpResponse("ok")
-        elif offer == "result":
-            # sending outcome of all group members in the fourth round
-            participant = Participant.objects.get(participant_id = participant_id)            
-            group = Group.objects.get(group_number = participant.group_number)  
-            finishedParticipants = Participant.objects.filter(group_number = group.group_number).exclude(finished_fourth = False)
-            all_completed = len(finishedParticipants) == group.participants
-            response = "result"
-            for i in range(4):       
-                p = Participant.objects.get(group_number = group.group_number, number_in_group = i+1)    
-                if p.finished is None:
-                    response += "_-99"         
-                else:                    
-                    response += "_" + str(p.reward_in_fourth)
-            response += "_" + str(all_completed)
+                response = ""                
             return HttpResponse(response)            
+        elif block == "paidtoken":
+            # saving information whether a token was paid
+            participant = Participant.objects.get(participant_id = participant_id)            
+            participant.token = bool(offer)
+            participant.save()
+            return HttpResponse("ok")
+        elif offer == "outcome":
+            # sending information about outcome of the other participants
+            participant = Participant.objects.get(participant_id = participant_id)  
+            pair = Pair.objects.get(pairNumber = getattr(participant, f"pair{block}"))
+            other = pair.roleA if pair.roleB == participant_id else pair.roleB
+            try:
+                outcome = Outcome.objects.get(participant_id = other, roundNumber = block)
+            except ObjectDoesNotExist:
+                return HttpResponse("False")
+            response = "|".join(["outcome", str(outcome.wins), str(outcome.reward), outcome.version]) + "_True"
+            return HttpResponse(response)
+        elif block.startswith("trust"):
+            # saving outcome from trust
+            block = block.lstrip("trust_")
+            participant = Participant.objects.get(participant_id = participant_id)  
+            pair = Pair.objects.get(pairNumber = getattr(participant, f"pair{int(block) + 2}"))  
+            offers = offer.split("_")          
+            if pair.roleA == participant_id:
+                pair.preparedA = True
+                pair.sentA = int(offer[0])
+                pair.save()
+                if pair.preparedB:
+                    resolvePair(pair.pairNumber)
+            else:
+                pair.preparedB = True                
+                pair.returns = "_".join(offers[1:])
+                pair.save()
+                if pair.preparedA:
+                    resolvePair(pair.pairNumber)      
+            return HttpResponse("ok")      
+        elif offer.startswith("outcome"):
+            # saving outcome from dice
+            participant = Participant.objects.get(participant_id = participant_id)  
+            _, wins, reward, version = offer.split("|")            
+            outcome = Outcome(participant_id = participant_id, roundNumber = block, wins = wins, reward = reward, version = version)  
+            outcome.save()
+            return HttpResponse("ok")
         elif offer == "continue":           
             try:
                 participant = Participant.objects.get(participant_id = participant_id)
@@ -143,63 +146,18 @@ def manager(request):
                 return HttpResponse("continue")
             else:
                 return HttpResponse("no")
-        elif offer == "pairing":
-            participant = Participant.objects.get(participant_id = participant_id)                 
-            pair = Pair.objects.get(pairNumber = participant.pairNumber)
-            if participant.role == "A":
-                pair.preparedA = True                                
-            else:
-                pair.preparedB = True
-            pair.save()
-            if not (pair.preparedA and pair.preparedB):
-                return HttpResponse("")
-            else:
-                pairNumber = pair.pairNumber
-                role = participant.role
-                condition = pair.condition
-                response = "_".join([str(pairNumber), role, condition])
-                return HttpResponse(response)         
-        elif block == "dictator1A" or block == "dictator2A":
-            participant = Participant.objects.get(participant_id = participant_id)                 
-            roundNumber = int(block.lstrip("dictator").rstrip("A"))
-            decision = Decision(pairNumber = participant.pairNumber, roundNumber = roundNumber, took = int(offer))
-            decision.save()            
-            return HttpResponse("ok")
-        elif block == "dictator1B":
-            participant = Participant.objects.get(participant_id = participant_id)                 
-            responses = offer.split("_")
-            for r in responses:
-                decision, response, message, money = r.split("|")
-                response = Response(pairNumber = participant.pairNumber, decision = int(decision), response = response, message = int(message), money = int(money))
-                response.save()
-            return HttpResponse("ok")
-        elif offer == "decision1":
-            participant = Participant.objects.get(participant_id = participant_id) 
-            pair = Pair.objects.get(pairNumber = participant.pairNumber)            
-            try:
-                pairNumber = pair.pairNumber
-                decision = Decision.objects.get(pairNumber = pairNumber, roundNumber = 1)                                
-                took = decision.took                
-                response = Response.objects.get(pairNumber = pairNumber, decision = took)
-                data = "_".join(map(str, [pairNumber, took, response.response, response.message, response.money])) 
-                return HttpResponse(data)
-            except ObjectDoesNotExist:
-                return HttpResponse("")
-        elif offer == "decision2":
-            participant = Participant.objects.get(participant_id = participant_id) 
-            pair = Pair.objects.get(pairNumber = participant.pairNumber)            
-            try:
-                pairNumber = pair.pairNumber
-                decision = Decision.objects.get(pairNumber = pairNumber, roundNumber = 2)                
-                data = "_".join(map(str, [pairNumber, decision.took]))    
-                return HttpResponse(data)
-            except ObjectDoesNotExist:
-                return HttpResponse("")            
-        else:
-            # TODO
-            pass
+ 
+     
 
 
+def resolvePair(pairNumber):
+    pair = Pair.objects.get(pairNumber = pairNumber)
+    if not pair.preparedA or not pair.preparedB:
+        return
+    returns = pair.returns.split("_")
+    which = int(pair.sentA * 5 / pair.endowment)
+    pair.sentB = returns[which]
+    pair.save()
 
 
 def results_path():
@@ -337,9 +295,9 @@ def startSession(request, response = True):
         reward_order = random.choice(["high-low", "low-high"])
         group = Group(session = currentSession.session_number, participants = len(ps), condition = condition, reward_order = reward_order)
         group.save()        
-        for p in ps:
-            p = Participant.objects.get(participant_id = p)
-            p.group = group.group_number
+        for pid in ps:
+            p = Participant.objects.get(participant_id = pid)
+            p.group_number = group.group_number
             p.save()
         for r, pairs in generate_rounds(ps).items():
             round_pairings[r].extend(pairs)
@@ -352,23 +310,26 @@ def startSession(request, response = True):
     round_pairings[3] = generate_third(unused_pairs, participants)
         
     for r, pairing in round_pairings.items():
-        incentive = "TODO"
-        currentPair = list(pairing)
-        random.shuffle(currentPair)
-        pA, pB = *currentPair
-        pAobj = Participant.objects.get(participant_id = pA)        
-        pBobj = Participant.objects.get(participant_id = pB)                
-        g = Group.objects.get(group_number = p.group_number)
-        condition = g.condition if r != 3 else ""
-        token = random.choice([True, False]) if r == 7 else None
-        endowments = ["middle"] + g.reward_order.split("-") + ["middle"]
-        if token:
-            pAobj.token = True
-            pBobj.token = True
+        for thispair in pairing:
+            currentPair = list(thispair)
+            random.shuffle(currentPair)        
+            pA, pB = currentPair[0], currentPair[1]
+            pAobj = Participant.objects.get(participant_id = pA)        
+            pBobj = Participant.objects.get(participant_id = pB)        
+            g = Group.objects.get(group_number = pAobj.group_number)
+            condition = g.condition if r != 3 else ""
+            token = random.choice([True, False]) if r == 6 else None
+            e = ["middle"] + g.reward_order.split("-") + ["middle"]
+            endowments = {"low": 50, "middle": 100, "high": 200}
+            if token:
+                pAobj.token = True
+                pBobj.token = True
+            pair = Pair(session = currentSession.session_number, roundNumber = r, condition = condition, token = token, roleA = pA, roleB = pB, endowment = endowments[e[r-3]])
+            pair.save()
+            setattr(pAobj, f"pair{r}", pair.pairNumber)
+            setattr(pBobj, f"pair{r}", pair.pairNumber)
             pAobj.save()
             pBobj.save()
-        pair = Pair(session = currentSession.session_number, roundNumber = r, condition = condition, token = token, roleA = pA, roleB = pB, endowment = endowments[r-3])
-        pair.save()
 
     if response:
         return HttpResponse("Sezení {} zahájeno s {} participanty".format(currentSession.session_number, len(participants)))
@@ -454,43 +415,44 @@ def deleteData(request):
 
 
 def removeParticipant(participant_id):
+    pass
     # TODO
-    try:
-        participant = Participant.objects.get(participant_id = participant_id) 
-        if participant.finished:
-            return("Participant již sezení ukončil")
-        elif participant.finished is None:
-            return("Participant již byl přeskočen")
-        else:
-            participant.finished = None
-            participant.save()
-        session = Session.objects.get(session_number = participant.session)
-        if session.status != "ongoing":
-            return("Participant není z aktivního sezení")
-        pair = Pair.objects.get(pairNumber = participant.pairNumber)
-        if participant.role == "A":
-            pair.preparedA = True       
-            decision1 = Decision(pairNumber = participant.pairNumber, roundNumber = 1, took = 0)
-            decision1.save()                                
-            decision2 = Decision(pairNumber = participant.pairNumber, roundNumber = 2, took = 0)
-            decision2.save()                                
-        else:
-            pair.preparedB = True
-            for r in range(6):
-                message = random.randint(1,2)
-                res = random.randint(0,1)
-                response = Response(pairNumber = participant.pairNumber, decision = r*2, response = pair.condition.split("-")[res], message = message, money = 0)
-                response.save()  
-        pair.save()      
-        group = Group.objects.get(group_number = participant.group_number)
-        group.participants -= 1
-        group.save()
-        group_votes = Participant.objects.filter(group_number = participant.group_number).exclude(vote = 0).exclude(finished = None)
-        if len(group_votes) == group.participants:
-            determineWinner(participant.group_number)
-        return("Participant bude ve studii přeskočen")
-    except ObjectDoesNotExist as e:
-        return("Participant s daným id nenalezen")
+    # try:
+    #     participant = Participant.objects.get(participant_id = participant_id) 
+    #     if participant.finished:
+    #         return("Participant již sezení ukončil")
+    #     elif participant.finished is None:
+    #         return("Participant již byl přeskočen")
+    #     else:
+    #         participant.finished = None
+    #         participant.save()
+    #     session = Session.objects.get(session_number = participant.session)
+    #     if session.status != "ongoing":
+    #         return("Participant není z aktivního sezení")
+    #     pair = Pair.objects.get(pairNumber = participant.pairNumber)
+    #     if participant.role == "A":
+    #         pair.preparedA = True       
+    #         decision1 = Decision(pairNumber = participant.pairNumber, roundNumber = 1, took = 0)
+    #         decision1.save()                                
+    #         decision2 = Decision(pairNumber = participant.pairNumber, roundNumber = 2, took = 0)
+    #         decision2.save()                                
+    #     else:
+    #         pair.preparedB = True
+    #         for r in range(6):
+    #             message = random.randint(1,2)
+    #             res = random.randint(0,1)
+    #             response = Response(pairNumber = participant.pairNumber, decision = r*2, response = pair.condition.split("-")[res], message = message, money = 0)
+    #             response.save()  
+    #     pair.save()      
+    #     group = Group.objects.get(group_number = participant.group_number)
+    #     group.participants -= 1
+    #     group.save()
+    #     group_votes = Participant.objects.filter(group_number = participant.group_number).exclude(vote = 0).exclude(finished = None)
+    #     if len(group_votes) == group.participants:
+    #         determineWinner(participant.group_number)
+    #     return("Participant bude ve studii přeskočen")
+    # except ObjectDoesNotExist as e:
+    #     return("Participant s daným id nenalezen")
 
 
 

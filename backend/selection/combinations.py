@@ -1,3 +1,6 @@
+import itertools
+import random
+
 def generate_rounds(ps):
     used_pairs = set()
     all_pairings = list(itertools.combinations(ps, 2))      
