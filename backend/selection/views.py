@@ -12,44 +12,10 @@ from collections import Counter
 import random
 import os
 import zipfile
+import itertools
 
 from .models import Session, Group, Participant, Pair, Outcome
-
-
-# TODO
-# import itertools
-
-# def generate_pairings(players):
-#     # Generate all possible pairings from the players
-#     all_pairings = list(itertools.combinations(players, 2))
-#     return all_pairings
-
-# def is_valid_round(round_pairings, used_pairs):
-#     # Check if the current round has any repeated pairs
-#     for pair in round_pairings:
-#         if pair in used_pairs:
-#             return False
-#     return True
-
-# def generate_rounds(players, rounds=3):
-#     all_pairings = generate_pairings(players)
-#     used_pairs = set()
-#     rounds_list = []
-    
-#     for _ in range(rounds):
-#         round_pairings = []
-#         available_pairings = [pair for pair in all_pairings if pair not in used_pairs]
-        
-#         while len(round_pairings) < len(players) // 2:
-#             pair = available_pairings.pop(0)
-#             round_pairings.append(pair)
-#             used_pairs.add(pair)
-        
-#         rounds_list.append(round_pairings)
-    
-#     return rounds_list
-
-
+from .combinations import generate_rounds, generate_third
 
 
 
@@ -64,14 +30,7 @@ def manager(request):
         participant_id = request.POST.get("id")
         block = request.POST.get("round")
         offer = request.POST.get("offer")
-        if offer == "voting":
-            # getting result of voting
-            participant = Participant.objects.get(participant_id = participant_id)            
-            group = Group.objects.get(group_number = participant.group_number)
-            condition = "treatment" if participant.number_in_group == group.winner else "control"                                
-            response = "_".join(map(str, [condition, group.winner, group.votes]))                                        
-            return HttpResponse(response)
-        elif offer == "progress":
+        if offer == "progress":
             participant = Participant.objects.get(participant_id = participant_id)            
             participant.screen = int(block)
             participant.lastprogress = timezone.now()
@@ -89,8 +48,8 @@ def manager(request):
                     return HttpResponse("already_logged")
                 except ObjectDoesNotExist:                    
                     currentSession.participants += 1
-                    currentSession.save()
-                    participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number)
+                    currentSession.save()                    
+                    participant = Participant(participant_id = participant_id, group_number = -99, session = currentSession.session_number, winning_block = random.randint(1,6), winning_trust = random.randint(3,6))
                     participant.save()         
                     return HttpResponse("login_successful")   
             elif currentSession.status == "ongoing":
@@ -117,6 +76,21 @@ def manager(request):
             participant.finished = True
             participant.save()
             return HttpResponse("ok")
+        elif offer == "trust":
+            # getting result of voting
+            participant = Participant.objects.get(participant_id = participant_id)            
+            group = Group.objects.get(group_number = participant.group_number)
+            condition = "treatment" if participant.number_in_group == group.winner else "control"                                
+            response = "_".join(map(str, [condition, group.winner, group.votes]))                                        
+            return HttpResponse(response)
+        elif offer == "token":
+            pass
+        elif offer == "outcome":
+            pass
+        elif "trust" in offer:
+            pass
+        elif offer.starstwith("outcome"):
+            pass
         elif "outcome" in offer:
             # outcome of the AFTER version in the third round
             participant = Participant.objects.get(participant_id = participant_id)            
@@ -336,7 +310,6 @@ def endSession(request, response = True):
 
 @login_required(login_url='/admin/login/')
 def startSession(request, response = True):
-    # TODO
     try:
         currentSession = Session.objects.latest('start')
         if currentSession.status == "finished" or currentSession.status == "ongoing":
@@ -349,40 +322,58 @@ def startSession(request, response = True):
     currentSession.status = "ongoing"
     currentSession.save()
     participants = [participant.participant_id for participant in Participant.objects.filter(session = currentSession.session_number)]
-    number = len(participants)
-    groups = number//4
-    random.shuffle(participants)    
-    num = 0
-    for i in range(groups):
-        condition = random.choice(["others_kept", "charity_kept", "charity_divided", "experimenter_kept", "experimenter_divided"])
-        block = random.randint(1, 4)
-        group = Group(session = currentSession.session_number, participants = 4, condition = condition, winning_block = block)
-        group.save()
-        for j in range(4):
-            p = Participant.objects.get(participant_id = participants[num])
-            p.group_number = group.group_number
-            p.number_in_group = j+1
+
+    random.shuffle(participants)
+    if len(participants) % 2 != 0:
+        removed = participants.pop()
+    round_pairings = {x:[] for x in range(3,7)}
+    num_groups = len(participants) // 4
+    for i in range(num_groups):
+        if i == num_groups - 1:
+            ps = participants[slice(4*i, len(participants))]
+        else:
+            ps = participants[slice(4*i, 4*i+4)]
+        condition = random.choice(["control", "version", "reward", "version_reward"])
+        reward_order = random.choice(["high-low", "low-high"])
+        group = Group(session = currentSession.session_number, participants = len(ps), condition = condition, reward_order = reward_order)
+        group.save()        
+        for p in ps:
+            p = Participant.objects.get(participant_id = p)
+            p.group = group.group_number
             p.save()
-            num += 1
-    pairs = groups*2
-    toBePaired = participants[:groups*4]
-    random.shuffle(toBePaired)
-    for i in range(pairs):
-        condition = random.choice(["forgive-ignore", "ignore-punish", "forgive-punish"])
-        pair = Pair(session = currentSession.session_number, condition = condition, roleA = toBePaired[i*2], roleB = toBePaired[i*2+1])
+        for r, pairs in generate_rounds(ps).items():
+            round_pairings[r].extend(pairs)
+
+    all_pairings = list(itertools.combinations(participants, 2))  
+    all_pairings = [(i[0], i[1]) if i[0] < i[1] else (i[1], i[0]) for i in all_pairings]
+    used_pairs = [x for xs in round_pairings.values() for x in xs]
+    used_pairs = [(i[0], i[1]) if i[0] < i[1] else (i[1], i[0]) for i in used_pairs]
+    unused_pairs = list(set(all_pairings) - set(used_pairs))
+    round_pairings[3] = generate_third(unused_pairs, participants)
+        
+    for r, pairing in round_pairings.items():
+        incentive = "TODO"
+        currentPair = list(pairing)
+        random.shuffle(currentPair)
+        pA, pB = *currentPair
+        pAobj = Participant.objects.get(participant_id = pA)        
+        pBobj = Participant.objects.get(participant_id = pB)                
+        g = Group.objects.get(group_number = p.group_number)
+        condition = g.condition if r != 3 else ""
+        token = random.choice([True, False]) if r == 7 else None
+        endowments = ["middle"] + g.reward_order.split("-") + ["middle"]
+        if token:
+            pAobj.token = True
+            pBobj.token = True
+            pAobj.save()
+            pBobj.save()
+        pair = Pair(session = currentSession.session_number, roundNumber = r, condition = condition, token = token, roleA = pA, roleB = pB, endowment = endowments[r-3])
         pair.save()
-        pA = Participant.objects.get(participant_id = toBePaired[i*2])
-        pA.role = "A"
-        pA.pairNumber = pair.pairNumber
-        pA.save()
-        pB = Participant.objects.get(participant_id = toBePaired[i*2+1])
-        pB.role = "B"
-        pB.pairNumber = pair.pairNumber
-        pB.save()
+
     if response:
-        return HttpResponse("Sezení {} zahájeno s {} participanty".format(currentSession.session_number, num))
+        return HttpResponse("Sezení {} zahájeno s {} participanty".format(currentSession.session_number, len(participants)))
     else:
-        return "Sezení {} zahájeno s {} participanty".format(currentSession.session_number, num)
+        return "Sezení {} zahájeno s {} participanty".format(currentSession.session_number, len(participants))
 
 
 def showEntries(objectType):
@@ -568,7 +559,7 @@ def administration(request):
                 for wait in waits:
                     duration = timezone.now() - wait.lastprogress
                     if duration.seconds > 300:
-                        waiting[wait.participant_id] = {"group": wait.group_number, "pair": wait.pairNumber, "screen": wait.screen, "time": duration.seconds}
+                        waiting[wait.participant_id] = {"group": wait.group_number, "screen": wait.screen, "time": duration.seconds}
             elif status == "closed":
                 info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(numberOfParticipants, currentSession.session_number)
             elif status == "finished":

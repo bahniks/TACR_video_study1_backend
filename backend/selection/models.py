@@ -31,17 +31,13 @@ class Group(models.Model):
 class Participant(models.Model):
     participant_id = models.CharField(max_length=50, default="")  
     group_number = models.IntegerField(default=0)    
-    number_in_group = models.IntegerField(default=0)
     session = models.IntegerField(default=0)    
     time = models.DateTimeField(auto_now=True)
     winning_block = models.IntegerField(default=0)
     winning_trust = models.IntegerField(default=0)
     finished = models.BooleanField(default=False, null=True)
     reward = models.IntegerField(default=0)
-    # pairNumber3 = models.IntegerField(default=0)    
-    # pairNumber4 = models.IntegerField(default=0)    
-    # pairNumber5 = models.IntegerField(default=0)    
-    # pairNumber6 = models.IntegerField(default=0)    
+    token = models.BooleanField(default=False)
     screen = models.IntegerField(default=0)
     lastprogress = models.DateTimeField(default=timezone.now)
 
