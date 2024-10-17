@@ -108,7 +108,14 @@ def manager(request):
                 outcome = Outcome.objects.get(participant_id = other, roundNumber = block)
             except ObjectDoesNotExist:
                 return HttpResponse("False")
-            response = "|".join(["outcome", str(outcome.wins), str(outcome.reward), outcome.version]) + "_True"
+            version = outcome.version
+            if block == 6:
+                if not pair.token:
+                    version += "_control"
+                else:
+                    otherParticipant = Participant.objects.get(participant_id = other)                
+                    version += "_contributed" if otherParticipant.paidtoken else "_notContributed"
+            response = "|".join(["outcome", str(outcome.wins), str(outcome.reward), version]) + "_True"
             return HttpResponse(response)
         elif block.startswith("trust"):
             # saving outcome from trust
