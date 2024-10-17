@@ -58,13 +58,13 @@ def manager(request):
                         return HttpResponse("not_grouped")
                     group = Group.objects.get(group_number = p.group_number)
                     lastpair = Pair.objects.get(pairNumber = p.pair6)                    
-                    trustPairs = f"{p.pair3}{p.pair4}{p.pair5}{p.pair6}"                    
+                    trustPairs = f"{p.pair3}_{p.pair4}_{p.pair5}_{p.pair6}"                    
                     trustRoles = []
                     for i in range(3,7):
                         pair = Pair.objects.get(pairNumber = getattr(p, f"pair{i}"))
                         role = "A" if pair.roleA == participant_id else "B"
                         trustRoles.append(role)
-                    trustRoles = "_".join(trustRoles)
+                    trustRoles = "".join(trustRoles)
                     response = "|".join(["start", group.condition, group.reward_order, str(lastpair.token), str(p.winning_block), str(p.winning_trust), trustRoles, trustPairs])
                     return HttpResponse(response)
                 except ObjectDoesNotExist:
@@ -103,7 +103,7 @@ def manager(request):
             # sending information about outcome of the other participants
             participant = Participant.objects.get(participant_id = participant_id)  
             pair = Pair.objects.get(pairNumber = getattr(participant, f"pair{block}"))
-            other = pair.roleA if pair.roleB == participant_id else pair.roleB
+            other = pair.roleA if pair.roleB == participant_id else pair.roleB        
             try:
                 outcome = Outcome.objects.get(participant_id = other, roundNumber = block)
             except ObjectDoesNotExist:
@@ -112,13 +112,13 @@ def manager(request):
             return HttpResponse(response)
         elif block.startswith("trust"):
             # saving outcome from trust
-            block = block.lstrip("trust_")
+            block = block.lstrip("trust")
             participant = Participant.objects.get(participant_id = participant_id)  
             pair = Pair.objects.get(pairNumber = getattr(participant, f"pair{int(block) + 2}"))  
             offers = offer.split("_")          
             if pair.roleA == participant_id:
                 pair.preparedA = True
-                pair.sentA = int(offer[0])
+                pair.sentA = int(offers[0])
                 pair.save()
                 if pair.preparedB:
                     resolvePair(pair.pairNumber)
