@@ -109,13 +109,13 @@ def manager(request):
             except ObjectDoesNotExist:
                 return HttpResponse("False")
             version = outcome.version
-            if block == 6:
+            if block == "6":
                 if not pair.token:
                     version += "_control"
                 else:
                     otherParticipant = Participant.objects.get(participant_id = other)                
                     version += "_contributed" if otherParticipant.paidtoken else "_notContributed"
-            response = "|".join(["outcome", str(outcome.wins), str(outcome.reward), version]) + "_True"
+            response = "|".join(["outcome", str(outcome.wins), str(outcome.reward), version]) + "_True"         
             return HttpResponse(response)
         elif block.startswith("trust"):
             # saving outcome from trust
@@ -284,9 +284,16 @@ def startSession(request, response = True):
             return HttpResponse("Není zahájeno žádné sezení")
         else:
             return "Není zahájeno žádné sezení"        
+    
+    participants = [participant.participant_id for participant in Participant.objects.filter(session = currentSession.session_number)]
+    if len(participants) < 6:
+        if response:
+            return HttpResponse("Není přihlášeno 6 participantů, experiment nelze spustit")
+        else:
+            return "Není přihlášeno 6 participantů, experiment nelze spustit"
+
     currentSession.status = "ongoing"
     currentSession.save()
-    participants = [participant.participant_id for participant in Participant.objects.filter(session = currentSession.session_number)]
 
     random.shuffle(participants)
     if len(participants) % 2 != 0:
