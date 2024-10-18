@@ -26,6 +26,7 @@ def manager(request):
     if request.method == "GET":
         return HttpResponse("test")
     elif request.method == "POST":
+        print(request)
         participant_id = request.POST.get("id")
         block = request.POST.get("round")
         offer = request.POST.get("offer")
