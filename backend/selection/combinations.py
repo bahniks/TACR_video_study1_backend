@@ -1,7 +1,7 @@
 import itertools
 import random
 
-def generate_rounds(ps):
+def generate_rounds(ps, check = False):
     used_pairs = set()
     all_pairings = list(itertools.combinations(ps, 2))      
     round_pairings = {x:[] for x in range(3,7)}
@@ -18,15 +18,18 @@ def generate_rounds(ps):
                 used_participants.add(pair[1])
                 available_pairings = [pair for pair in available_pairings if pair[0] not in used_participants and pair[1] not in used_participants]
 
-        all_pairings = [(i[0], i[1]) if i[0] < i[1] else (i[1], i[0]) for i in all_pairings]
-        used_pairs = [(i[0], i[1]) if i[0] < i[1] else (i[1], i[0]) for i in used_pairs]
-        unused_pairs = list(set(all_pairings) - set(used_pairs))
-        try:
-            generate_third(unused_pairs, ps)
-        except Exception:
-            return(generate_rounds(ps))
-        else:
-            return round_pairings        
+        if check:
+            all_pairings = [(i[0], i[1]) if i[0] < i[1] else (i[1], i[0]) for i in all_pairings]
+            used_pairs = [(i[0], i[1]) if i[0] < i[1] else (i[1], i[0]) for i in used_pairs]
+            unused_pairs = list(set(all_pairings) - set(used_pairs))
+            try:
+                generate_third(unused_pairs, ps)
+            except Exception:
+                return(generate_rounds(ps, check = True))
+            else:
+                return round_pairings
+        else: 
+            return round_pairings
     except IndexError:
         return(generate_rounds(ps))
 

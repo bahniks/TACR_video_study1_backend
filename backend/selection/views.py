@@ -120,19 +120,19 @@ def manager(request):
             return HttpResponse(response)
         elif block.startswith("trust"):
             # saving outcome from trust
-            block = block.lstrip("trust")
+            block = block.lstrip("_trust")
             participant = Participant.objects.get(participant_id = participant_id)  
             pair = Pair.objects.get(pairNumber = getattr(participant, f"pair{int(block) + 2}"))  
-            offers = offer.split("_")          
+            offers = offer.split("_")     
             if pair.roleA == participant_id:
                 pair.preparedA = True
-                pair.sentA = int(offers[0])
+                pair.sentA = int(offers[6])
                 pair.save()
                 if pair.preparedB:
                     resolvePair(pair.pairNumber)
             else:
                 pair.preparedB = True                
-                pair.returns = "_".join(offers[1:])
+                pair.returns = "_".join(offers[:6])
                 pair.save()
                 if pair.preparedA:
                     resolvePair(pair.pairNumber)      
@@ -314,7 +314,7 @@ def startSession(request, response = True):
             p = Participant.objects.get(participant_id = pid)
             p.group_number = group.group_number
             p.save()
-        for r, pairs in generate_rounds(ps).items():
+        for r, pairs in generate_rounds(ps, check = len(participants) == 6).items():
             round_pairings[r].extend(pairs)
 
     all_pairings = list(itertools.combinations(participants, 2))  
