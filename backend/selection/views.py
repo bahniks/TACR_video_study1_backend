@@ -430,44 +430,46 @@ def deleteData(request):
 
 
 def removeParticipant(participant_id):
-    pass
-    # TODO
-    # try:
-    #     participant = Participant.objects.get(participant_id = participant_id) 
-    #     if participant.finished:
-    #         return("Participant již sezení ukončil")
-    #     elif participant.finished is None:
-    #         return("Participant již byl přeskočen")
-    #     else:
-    #         participant.finished = None
-    #         participant.save()
-    #     session = Session.objects.get(session_number = participant.session)
-    #     if session.status != "ongoing":
-    #         return("Participant není z aktivního sezení")
-    #     pair = Pair.objects.get(pairNumber = participant.pairNumber)
-    #     if participant.role == "A":
-    #         pair.preparedA = True       
-    #         decision1 = Decision(pairNumber = participant.pairNumber, roundNumber = 1, took = 0)
-    #         decision1.save()                                
-    #         decision2 = Decision(pairNumber = participant.pairNumber, roundNumber = 2, took = 0)
-    #         decision2.save()                                
-    #     else:
-    #         pair.preparedB = True
-    #         for r in range(6):
-    #             message = random.randint(1,2)
-    #             res = random.randint(0,1)
-    #             response = Response(pairNumber = participant.pairNumber, decision = r*2, response = pair.condition.split("-")[res], message = message, money = 0)
-    #             response.save()  
-    #     pair.save()      
-    #     group = Group.objects.get(group_number = participant.group_number)
-    #     group.participants -= 1
-    #     group.save()
-    #     group_votes = Participant.objects.filter(group_number = participant.group_number).exclude(vote = 0).exclude(finished = None)
-    #     if len(group_votes) == group.participants:
-    #         determineWinner(participant.group_number)
-    #     return("Participant bude ve studii přeskočen")
-    # except ObjectDoesNotExist as e:
-    #     return("Participant s daným id nenalezen")
+    try:
+        participant = Participant.objects.get(participant_id = participant_id) 
+        if participant.finished:
+            return("Participant již sezení ukončil")
+        elif participant.finished is None:
+            return("Participant již byl přeskočen")
+        else:
+            participant.finished = None
+            participant.save()
+        session = Session.objects.get(session_number = participant.session)
+        if session.status != "ongoing":
+            return("Participant není z aktivního sezení")
+
+        for i in range(3,7):            
+            pair = Pair.objects.get(pairNumber = getattr(participant, f"pair{i}"))
+            if pair.roleA == participant_id and not pair.preparedA:
+                pair.preparedA = True
+                pair.sentA = pair.endowment
+                pair.save()
+                if pair.preparedB:
+                    resolvePair(pair.pairNumber)
+            elif pair.roleB == participant_id and not pair.preparedB:
+                pair.preparedB = True
+                pair.returns = "_".join([str(int((sent * 2 * pair.endowment) / 5)) for sent in range(6)])
+                pair.save()
+                if pair.preparedA:
+                    resolvePair(pair.pairNumber)                          
+
+            try:
+                outcome = Outcome.objects.get(participant_id = participant_id, roundNumber = i) 
+            except ObjectDoesNotExist:
+                outcome = Outcome(participant_id = participant_id, roundNumber = i, wins = 6, reward = 63, version = "control")         
+                outcome.save()
+
+            if participant.paidtoken is None:
+                participant.paidtoken = False
+
+        return("Participant bude ve studii přeskočen")
+    except ObjectDoesNotExist as e:
+        return("Participant s daným id nenalezen")
 
 
 
