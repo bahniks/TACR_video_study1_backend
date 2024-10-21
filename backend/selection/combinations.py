@@ -31,7 +31,7 @@ def generate_rounds(ps, check = False):
         else: 
             return round_pairings
     except IndexError:
-        return(generate_rounds(ps))
+        return(generate_rounds(ps, check = check))
 
 
 def generate_third(unused_pairs, participants):        
@@ -65,10 +65,8 @@ if __name__ == "__main__":
                 if i == num_groups - 1:
                     ps = participants[slice(4*i, len(participants))]
                 else:
-                    ps = participants[slice(4*i, 4*i+4)]
-                condition = random.choice(["control", "version", "reward", "version_reward"])
-                reward_order = random.choice(["high-low", "low-high"])      
-                for r, pairs in generate_rounds(ps).items():
+                    ps = participants[slice(4*i, 4*i+4)]    
+                for r, pairs in generate_rounds(ps, check = len(participants) == 6).items():
                     round_pairings[r].extend(pairs)     
             all_pairings = list(itertools.combinations(participants, 2))  
             all_pairings = [(i[0], i[1]) if i[0] < i[1] else (i[1], i[0]) for i in all_pairings]
