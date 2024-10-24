@@ -97,7 +97,7 @@ def manager(request):
         elif block == "paidtoken":
             # saving information whether a token was paid
             participant = Participant.objects.get(participant_id = participant_id)            
-            participant.token = bool(offer)
+            participant.paidtoken = bool(offer)
             participant.save()
             return HttpResponse("ok")
         elif offer == "outcome":
