@@ -66,7 +66,7 @@ def manager(request):
                         role = "A" if pair.roleA == participant_id else "B"
                         trustRoles.append(role)
                     trustRoles = "".join(trustRoles)
-                    response = "|".join(["start", group.condition, group.reward_order, str(lastpair.token), str(p.winning_block), str(p.winning_trust), trustRoles, trustPairs])
+                    response = "|".join(["start", group.condition, group.reward_order, str(lastpair.token), str(p.winning_block), str(p.winning_trust), trustRoles, trustPairs, str(participant.id)])
                     return HttpResponse(response)
                 except ObjectDoesNotExist:
                     return HttpResponse("ongoing")
