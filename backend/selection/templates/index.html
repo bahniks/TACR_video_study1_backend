@@ -61,15 +61,17 @@
               <th>Skupina</th>
               <th>Pár</th>
               <th>Obrazovka</th>
+              <th>Část studie</th>
               <th>Čas</th>
             </tr>
             {% for participant, info in waiting.items %} 
             <tr>
-              <th style="font-weight:normal"> {{ participant }}</th>
-              <th style="font-weight:normal"> {{ info.group }}</th>
-              <th style="font-weight:normal"> {{ info.pair }}</th>
-              <th style="font-weight:normal"> {{ info.screen }}</th>
-              <th style="font-weight:normal"> {{ info.time }} s</th>
+              <th style="font-weight:normal; padding-inline: 10px"> {{ participant }} </th>
+              <th style="font-weight:normal; padding-inline: 10px"> {{ info.group }} </th>
+              <th style="font-weight:normal; padding-inline: 10px"> {{ info.pair }} </th>
+              <th style="font-weight:normal; padding-inline: 10px"> {{ info.screen }} </th>
+              <th style="font-weight:normal; padding-inline: 10px"> {{ info.screenName }} </th>
+              <th style="font-weight:normal; padding-inline: 10px"> {{ info.time }} s</th>
             </tr> 
             {% endfor %}
         </table>

@@ -20,6 +20,56 @@ from .combinations import generate_rounds, generate_third
 
 
 
+frames = ["Initial",
+          "Login",
+          "Intro",
+          "HEXACOintro",
+          "CheatingInstructions",
+          "Cheating1",
+          "Instructions2",
+          "Cheating2",
+          "Instructions3",
+          "Cheating3",
+          "Info3",
+          "InstructionsTrust",
+          "Trust3",
+          "WaitTrust3",
+          "TrustResult3",
+          "Instructions4Check",
+          "Cheating4",
+          "OutcomeWait4",          
+          "Trust4",
+          "WaitTrust4",
+          "TrustResult4",
+          "Instructions5",
+          "Cheating5",
+          "OutcomeWait5",
+          "Trust5",
+          "WaitTrust5",
+          "TrustResult5",
+          "Instructions6",
+          "Cheating6",
+          "OutcomeWait6",
+          "Trust6",
+          "WaitTrust6",
+          "TrustResult6",
+          "EndCheating",
+          "Lottery",
+          "LotteryWin",
+          "LotteryInstructions",
+          "DiceLottery",
+          "AnchoringInstructions", 
+          "Anchoring",
+          "QuestInstructions",
+          "PoliticalSkill",
+          "TDMS",
+          "HEXACOinfo",
+          "Demographics",
+          "Comments",
+          "Ending"
+         ]
+
+
 
 @csrf_exempt 
 def manager(request):
@@ -429,6 +479,29 @@ def deleteData(request):
     return HttpResponse("Data smazána")
 
 
+
+def unbugPair(pairNumber):
+    try:
+        pair = Pair.objects.get(pairNumber = pairNumber)
+        currentSession = Session.objects.latest('start')
+        if pair.session != currentSession.session_number:
+            return("Pár nenalezen v probíhajícím sezení")
+        if (pair.preparedA and pair.preparedB) or (not pair.preparedA and not pair.preparedB):
+            return("Nezdá se, že by byl u páru problém")
+        if not pair.preparedA:
+            pair.sentA = 0            
+            pair.preparedA = True
+            pair.save()
+        if not pair.preparedB:
+            pair.returns = "0_0_0_0_0_0"
+            pair.preparedB = True
+            pair.save()
+        resolvePair(pairNumber)
+        return("Problém vyřešen")
+    except ObjectDoesNotExist as e:
+        return("Pár nenalezen")
+
+
 def removeParticipant(participant_id):
     try:
         participant = Participant.objects.get(participant_id = participant_id) 
@@ -516,6 +589,13 @@ def administration(request):
             else:
                 participant_id = splitted[1].strip()
                 info = removeParticipant(participant_id)
+        elif "vyresit" in answer:
+            splitted = answer.split()
+            if len(splitted) != 2:
+                info = "Příkaz nezadán správně"
+            else:
+                pairNumber = splitted[1].strip()
+                info = unbugPair(pairNumber)            
         else:
             info = "Toto není validní příkaz"
     else:        
@@ -538,7 +618,14 @@ def administration(request):
                 for wait in waits:
                     duration = timezone.now() - wait.lastprogress
                     if duration.seconds > 300:
-                        waiting[wait.participant_id] = {"group": wait.group_number, "screen": wait.screen, "time": duration.seconds}
+                        screenName = frames[int(wait.screen)]
+                        if "WaitTrust" in screenName and len(screenName) == 10:
+                            trustRound = screenName.lstrip("WaitTrust")
+                            #pair = Pair.objects.get(pairNumber = getattr(wait, f"pair{i}"))
+                            pairNumber = getattr(wait, f"pair{trustRound}")
+                        else:
+                            pairNumber = ""
+                        waiting[wait.participant_id] = {"group": wait.group_number, "pair": pairNumber, "screen": wait.screen, "screenName": screenName, "time": duration.seconds}
             elif status == "closed":
                 info = "Přihlášeno {} participantů do sezení {}, které nebylo zatím spuštěno, ale je uzavřeno pro přihlašování".format(numberOfParticipants, currentSession.session_number)
             elif status == "finished":
