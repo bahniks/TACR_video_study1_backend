@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
+from django.db import transaction
 
 from time import localtime, strftime
 from collections import Counter
@@ -172,20 +173,21 @@ def manager(request):
             # saving outcome from trust
             block = block.lstrip("_trust")
             participant = Participant.objects.get(participant_id = participant_id)  
-            pair = Pair.objects.get(pairNumber = getattr(participant, f"pair{int(block) + 2}"))  
-            offers = offer.split("_")     
-            if pair.roleA == participant_id:
-                pair.preparedA = True
-                pair.sentA = int(offers[6])
-                pair.save()
-                if pair.preparedB:
-                    resolvePair(pair.pairNumber)
-            else:
-                pair.preparedB = True                
-                pair.returns = "_".join(offers[:6])
-                pair.save()
-                if pair.preparedA:
-                    resolvePair(pair.pairNumber)      
+            with transaction.atomic():
+                pair = Pair.objects.select_for_update().get(pairNumber = getattr(participant, f"pair{int(block) + 2}"))  
+                offers = offer.split("_")     
+                if pair.roleA == participant_id:
+                    pair.preparedA = True
+                    pair.sentA = int(offers[6])
+                    pair.save()
+                    if pair.preparedB:
+                        resolvePair(pair.pairNumber)
+                else:
+                    pair.preparedB = True                
+                    pair.returns = "_".join(offers[:6])
+                    pair.save()
+                    if pair.preparedA:
+                        resolvePair(pair.pairNumber)      
             return HttpResponse("ok")      
         elif offer.startswith("outcome"):
             # saving outcome from dice
