@@ -20,14 +20,8 @@
         <p>
             <p>Do textového pole můžete zadat jeden z následujících příkazů:</p>
             <p>
-                otevrit - Otevře experimentální sezení k přihlášení (po usazení účastníků)<br>
-                spustit - Spustí experimentální sezení pro všechny participanty (jakmile se níže zobrazí, že je přihlášen správný počet účastníků)<br>
-                ukoncit - Ukončí experimentální sezení (jakmile je u všech účastníků zelená fajfka)<br>
-                ---------------------------------------------------------------------------------<br>
-                vyresit cisloParu - Pustí zaseknutý pár dále (při technických problémech)<br>
-                preskocit id - Odstraní participanta s daným id ze studie (při technických problémech)<br>
-                ukazat sezeni/skupiny/participanty/pary/vysledky - Ukáže příslušná data<br>
-                data sezeni/skupiny/participanti/pary/vysledky - Stáhne příslušná data<br>
+                ukazat participanty - Ukáže příslušná data<br>
+                data participanti - Stáhne příslušná data<br>
                 stahnout - Stáhne všechny soubory s výsledky participantů v .zip souboru
                 data vse - Stáhne všechna data
             </p>
@@ -42,7 +36,7 @@
     <p id="info" style="margin-bottom: 10px; margin-top: 10px;">  
         <b>{{ info }}</b>
     </p>
-    {% if status == "ongoing" and participants %}  
+    {% if participants %}  
         <p>        
             <p>Odměny participantů, kteří již dokončili studii:</p>
             <ul> 
@@ -53,30 +47,5 @@
         </p>
     {% endif %} 
     <br>
-    {% if status == "ongoing" and waiting %}   
-    <p>        
-        <p style="font-weight:bold">Déle čekající participanti:</p>
-        <table>
-            <tr>
-              <th>ID</th>
-              <th>Skupina</th>
-              <th>Pár</th>
-              <th>Obrazovka</th>
-              <th>Část studie</th>
-              <th>Čas</th>
-            </tr>
-            {% for participant, info in waiting.items %} 
-            <tr>
-              <th style="font-weight:normal; padding-inline: 10px"> {{ participant }} </th>
-              <th style="font-weight:normal; padding-inline: 10px"> {{ info.group }} </th>
-              <th style="font-weight:normal; padding-inline: 10px"> {{ info.pair }} </th>
-              <th style="font-weight:normal; padding-inline: 10px"> {{ info.screen }} </th>
-              <th style="font-weight:normal; padding-inline: 10px"> {{ info.screenName }} </th>
-              <th style="font-weight:normal; padding-inline: 10px"> {{ info.time }} s</th>
-            </tr> 
-            {% endfor %}
-        </table>
-    </p>
-    {% endif %}
 </div>
 {% endblock %}
