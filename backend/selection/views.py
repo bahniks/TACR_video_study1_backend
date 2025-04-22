@@ -164,7 +164,7 @@ def downloadAll(request):
         os.remove(os.path.join(file_path, f))
         files.remove(f)
     writeTime = localtime()
-    zip_filename = "all_data_TACR1_{}_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), len(files) - len(tables))
+    zip_filename = "all_data_TACR1_{}_{}.zip".format(strftime("%y_%m_%d_%H%M%S", writeTime), len(files) - len(tables))
     zip_file_path = os.path.join(file_path, zip_filename)
     with zipfile.ZipFile(zip_file_path, "w") as zip_file:
         for file in files:
