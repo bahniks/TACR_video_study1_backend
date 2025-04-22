@@ -20,8 +20,8 @@ from .models import Participant
 
 
 frames = ["Initial",
-          "Intro",
-          "Login",    
+          "Login",
+          "Intro",              
           "VideoIntro1",
           "VideoIntro2",
           "Sound",
